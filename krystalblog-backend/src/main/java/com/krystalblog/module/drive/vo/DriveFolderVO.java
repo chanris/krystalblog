@@ -11,6 +11,7 @@ public class DriveFolderVO {
     private Long id;
     private String name;
     private Long parentId;
+    private Long itemCount;
     private Long userId;
     private String userName;
     private LocalDateTime createdAt;

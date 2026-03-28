@@ -23,8 +23,22 @@ public class DriveFolderController {
 
     @Operation(summary = "获取文件夹列表")
     @GetMapping
-    public Result<List<DriveFolderVO>> listFolders(@RequestParam(required = false) Long parentId) {
-        return Result.success(folderService.listFolders(parentId));
+    public Result<List<DriveFolderVO>> listFolders(
+            @RequestParam(required = false) Long parentId,
+            @RequestParam(required = false) String keyword) {
+        return Result.success(folderService.listFolders(parentId, keyword));
+    }
+
+    @Operation(summary = "获取文件夹详情")
+    @GetMapping("/{id}")
+    public Result<DriveFolderVO> getFolder(@PathVariable Long id) {
+        return Result.success(folderService.getFolder(id));
+    }
+
+    @Operation(summary = "获取文件夹面包屑路径（从根到当前）")
+    @GetMapping("/{id}/path")
+    public Result<List<DriveFolderVO>> getFolderPath(@PathVariable Long id) {
+        return Result.success(folderService.getFolderPath(id));
     }
 
     @Operation(summary = "创建文件夹（需登录）")

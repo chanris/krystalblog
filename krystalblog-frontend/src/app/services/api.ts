@@ -250,6 +250,41 @@ export interface LinkCategoryManageDTO {
   sortOrder?: number;
 }
 
+export interface DriveFolderVO {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  itemCount?: number;
+  userId?: number;
+  userName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DriveFileVO {
+  id: number;
+  fileName: string;
+  fileUrl: string;
+  fileType?: string;
+  fileSize: number;
+  folderId?: number | null;
+  folderName?: string;
+  uploaderId?: number;
+  uploaderName?: string;
+  status?: string;
+  downloadCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DriveStatsVO {
+  folderCount: number;
+  fileCount: number;
+  totalSizeBytes: number;
+  quotaBytes: number;
+  typeCounts: Record<string, number>;
+}
+
 export const friendLinkApi = {
   list: (status?: string) =>
     request.get<Result<FriendLinkVO[]>>('/friends', { params: status ? { status } : {} }),
@@ -283,11 +318,35 @@ export const linkCategoryApi = {
 
 // 网盘相关
 export const driveApi = {
-  folders: (parentId?: number) =>
-    request.get<Result<any[]>>('/drive/folders', { params: { parentId } }),
+  stats: () =>
+    request.get<Result<DriveStatsVO>>('/drive/files/stats'),
 
-  files: (folderId?: number) =>
-    request.get<Result<any[]>>('/drive/files', { params: { folderId } }),
+  folders: (params?: { parentId?: number; keyword?: string }) =>
+    request.get<Result<DriveFolderVO[]>>('/drive/folders', { params }),
+
+  folderPath: (id: number) =>
+    request.get<Result<DriveFolderVO[]>>(`/drive/folders/${id}/path`),
+
+  createFolder: (data: { name: string; parentId?: number }) =>
+    request.post<Result<DriveFolderVO>>('/drive/folders', data),
+
+  deleteFolder: (id: number) =>
+    request.delete<Result<void>>(`/drive/folders/${id}`),
+
+  files: (params?: { page?: number; size?: number; folderId?: number; keyword?: string }) =>
+    request.get<Result<PageResult<DriveFileVO>>>('/drive/files', { params }),
+
+  uploadMultipart: (data: FormData) =>
+    request.post<Result<DriveFileVO>>('/drive/files/upload', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+
+  deleteFile: (id: number) =>
+    request.delete<Result<void>>(`/drive/files/${id}`),
+
+  deleteFiles: (ids: number[]) =>
+    request.post<Result<void>>('/drive/files/batch-delete', { ids }),
+
+  downloadFile: (id: number) =>
+    request.get<Blob>(`/drive/files/${id}/download`, { responseType: 'blob' }),
 };
 
 // 统计相关

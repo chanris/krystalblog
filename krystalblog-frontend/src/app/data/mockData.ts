@@ -68,6 +68,15 @@ export interface DriveFile {
   sizeBytes: number;
   date: string;
   icon: string;
+  parentId?: number | null;
+}
+
+export interface DriveFolder {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  date: string;
+  itemCount: number;
 }
 
 export interface Friend {
@@ -559,16 +568,23 @@ export const songs: Song[] = [
 
 // ====================== DRIVE FILES ======================
 export const driveFiles: DriveFile[] = [
-  { id: 1, name: "KrystalBlog 需求文档 v2.0.pdf", type: "pdf", size: "2.4 MB", sizeBytes: 2516582, date: "2025-03-20", icon: "📄" },
-  { id: 2, name: "UI设计稿 - 最终版.fig", type: "figma", size: "15.8 MB", sizeBytes: 16567706, date: "2025-03-18", icon: "🎨" },
-  { id: 3, name: "数据库设计文档.xlsx", type: "excel", size: "890 KB", sizeBytes: 911360, date: "2025-03-15", icon: "📊" },
-  { id: 4, name: "系统架构图.png", type: "image", size: "1.2 MB", sizeBytes: 1258291, date: "2025-03-10", icon: "🖼️" },
-  { id: 5, name: "前端代码备份.zip", type: "archive", size: "45.6 MB", sizeBytes: 47814374, date: "2025-03-08", icon: "📦" },
-  { id: 6, name: "服务器配置文档.md", type: "markdown", size: "24 KB", sizeBytes: 24576, date: "2025-02-28", icon: "📝" },
-  { id: 7, name: "项目演示视频.mp4", type: "video", size: "128 MB", sizeBytes: 134217728, date: "2025-02-20", icon: "🎬" },
-  { id: 8, name: "测试报告.docx", type: "word", size: "3.6 MB", sizeBytes: 3774873, date: "2025-02-15", icon: "📃" },
-  { id: 9, name: "音频素材合集.zip", type: "archive", size: "78.2 MB", sizeBytes: 82000486, date: "2025-01-30", icon: "📦" },
-  { id: 10, name: "版权证书.pdf", type: "pdf", size: "456 KB", sizeBytes: 467149, date: "2025-01-15", icon: "📄" },
+  { id: 1, name: "KrystalBlog 需求文档 v2.0.pdf", type: "pdf", size: "2.4 MB", sizeBytes: 2516582, date: "2025-03-20", icon: "📄", parentId: null },
+  { id: 2, name: "UI设计稿 - 最终版.fig", type: "figma", size: "15.8 MB", sizeBytes: 16567706, date: "2025-03-18", icon: "🎨", parentId: 101 },
+  { id: 3, name: "数据库设计文档.xlsx", type: "excel", size: "890 KB", sizeBytes: 911360, date: "2025-03-15", icon: "📊", parentId: 101 },
+  { id: 4, name: "系统架构图.png", type: "image", size: "1.2 MB", sizeBytes: 1258291, date: "2025-03-10", icon: "🖼️", parentId: 102 },
+  { id: 5, name: "前端代码备份.zip", type: "archive", size: "45.6 MB", sizeBytes: 47814374, date: "2025-03-08", icon: "📦", parentId: null },
+  { id: 6, name: "服务器配置文档.md", type: "markdown", size: "24 KB", sizeBytes: 24576, date: "2025-02-28", icon: "📝", parentId: 103 },
+  { id: 7, name: "项目演示视频.mp4", type: "video", size: "128 MB", sizeBytes: 134217728, date: "2025-02-20", icon: "🎬", parentId: 104 },
+  { id: 8, name: "测试报告.docx", type: "word", size: "3.6 MB", sizeBytes: 3774873, date: "2025-02-15", icon: "📃", parentId: 103 },
+  { id: 9, name: "音频素材合集.zip", type: "archive", size: "78.2 MB", sizeBytes: 82000486, date: "2025-01-30", icon: "📦", parentId: null },
+  { id: 10, name: "版权证书.pdf", type: "pdf", size: "456 KB", sizeBytes: 467149, date: "2025-01-15", icon: "📄", parentId: 103 },
+];
+
+export const driveFolders: DriveFolder[] = [
+  { id: 101, name: "设计资料", parentId: null, date: "2025-03-18", itemCount: 2 },
+  { id: 102, name: "图片素材", parentId: null, date: "2025-03-10", itemCount: 1 },
+  { id: 103, name: "文档", parentId: null, date: "2025-02-28", itemCount: 2 },
+  { id: 104, name: "视频", parentId: null, date: "2025-02-20", itemCount: 1 },
 ];
 
 // ====================== FRIENDS ======================
