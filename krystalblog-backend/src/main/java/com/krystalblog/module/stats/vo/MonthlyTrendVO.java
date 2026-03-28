@@ -1,0 +1,17 @@
+package com.krystalblog.module.stats.vo;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class MonthlyTrendVO {
+    private String month;
+    private Long views;
+    private Long likes;
+    private Long comments;
+}

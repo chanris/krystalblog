@@ -350,7 +350,84 @@ export const driveApi = {
 };
 
 // 统计相关
+export interface StatsOverviewVO {
+  totalArticleViews: number;
+  monthlyArticleViews: number;
+  articleViewsTrend: number;
+  totalVideoPlays: number;
+  monthlyVideoPlays: number;
+  videoPlaysTrend: number;
+  totalMusicPlays: number;
+  monthlyMusicPlays: number;
+  musicPlaysTrend: number;
+  totalVisits: number;
+  weeklyVisits: number;
+  visitsTrend: number;
+  totalLikes: number;
+  totalComments: number;
+  averageArticleViews: number;
+  totalFriendLinks: number;
+  activeFriendLinks: number;
+}
+
+export interface MonthlyTrendVO {
+  month: string;
+  views: number;
+  likes: number;
+  comments: number;
+}
+
+export interface VideoTrendVO {
+  month: string;
+  plays: number;
+  likes: number;
+  comments: number;
+}
+
+export interface MusicTrendVO {
+  month: string;
+  plays: number;
+}
+
+export interface CategoryDistributionVO {
+  name: string;
+  value: number;
+}
+
+export interface WeeklyVisitVO {
+  day: string;
+  visits: number;
+}
+
+export interface SiteInfoVO {
+  establishedDate: string;
+  runningDays: number;
+  totalContent: number;
+  siteScore: number;
+}
+
 export const statsApi = {
   site: () =>
     request.get<Result<any>>('/stats'),
+
+  overview: () =>
+    request.get<Result<StatsOverviewVO>>('/stats/overview'),
+
+  articleTrend: (months = 6) =>
+    request.get<Result<MonthlyTrendVO[]>>('/stats/articles/trend', { params: { months } }),
+
+  videoTrend: (months = 6) =>
+    request.get<Result<VideoTrendVO[]>>('/stats/videos/trend', { params: { months } }),
+
+  musicTrend: (months = 6) =>
+    request.get<Result<MusicTrendVO[]>>('/stats/music/trend', { params: { months } }),
+
+  musicCategories: () =>
+    request.get<Result<CategoryDistributionVO[]>>('/stats/music/categories'),
+
+  weeklyVisits: () =>
+    request.get<Result<WeeklyVisitVO[]>>('/stats/visits/weekly'),
+
+  siteInfo: () =>
+    request.get<Result<SiteInfoVO>>('/stats/site/info'),
 };

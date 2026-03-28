@@ -8,11 +8,9 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import {
-  articleStatsData, videoStatsData, songStatsData,
-  categoryDistribution, weeklyVisits
-} from "../data/mockData";
 import { useApp } from "../context/AppContext";
+import { statsApi, StatsOverviewVO, MonthlyTrendVO, VideoTrendVO, MusicTrendVO, CategoryDistributionVO, WeeklyVisitVO, SiteInfoVO } from "../services/api";
+import { useEffect, useState } from "react";
 
 const COLORS = ["#d97706", "#f59e0b", "#0891b2", "#7c3aed", "#059669"];
 
@@ -70,6 +68,47 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function Stats() {
   const { isAdmin } = useApp();
+  const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState<StatsOverviewVO | null>(null);
+  const [articleTrend, setArticleTrend] = useState<MonthlyTrendVO[]>([]);
+  const [videoTrend, setVideoTrend] = useState<VideoTrendVO[]>([]);
+  const [musicTrend, setMusicTrend] = useState<MusicTrendVO[]>([]);
+  const [categoryDist, setCategoryDist] = useState<CategoryDistributionVO[]>([]);
+  const [weeklyVisits, setWeeklyVisits] = useState<WeeklyVisitVO[]>([]);
+  const [siteInfo, setSiteInfo] = useState<SiteInfoVO | null>(null);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [overviewRes, articleRes, videoRes, musicRes, categoryRes, weeklyRes, infoRes] = await Promise.all([
+          statsApi.overview(),
+          statsApi.articleTrend(6),
+          statsApi.videoTrend(6),
+          statsApi.musicTrend(6),
+          statsApi.musicCategories(),
+          statsApi.weeklyVisits(),
+          statsApi.siteInfo(),
+        ]);
+
+        setOverview(overviewRes.data);
+        setArticleTrend(articleRes.data);
+        setVideoTrend(videoRes.data);
+        setMusicTrend(musicRes.data);
+        setCategoryDist(categoryRes.data);
+        setWeeklyVisits(weeklyRes.data);
+        setSiteInfo(infoRes.data);
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isAdmin]);
 
   if (!isAdmin) {
     return (
@@ -84,6 +123,17 @@ export default function Stats() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full py-20">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-amber-200 border-t-amber-600 rounded-full animate-spin mx-auto mb-4" />
+          <p style={{ color: "#78716c" }}>加载统计数据中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
@@ -93,18 +143,18 @@ export default function Stats() {
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatOverviewCard icon={BookOpen} label="博客总阅读量" value="43,847" sub="本月 8,900 次" color="#d97706" trend={23.6} />
-        <StatOverviewCard icon={Video} label="视频总播放量" value="111,700" sub="本月 28,700 次" color="#7c3aed" trend={28.8} />
-        <StatOverviewCard icon={Music} label="音乐总播放量" value="323,145" sub="本月 89,400 次" color="#0891b2" trend={31.8} />
-        <StatOverviewCard icon={Globe} label="网站总访问量" value="52,340" sub="本周 14,524 次" color="#059669" trend={15.2} />
+        <StatOverviewCard icon={BookOpen} label="博客总阅读量" value={overview?.totalArticleViews.toLocaleString() || "0"} sub={`本月 ${overview?.monthlyArticleViews.toLocaleString() || "0"} 次`} color="#d97706" trend={overview?.articleViewsTrend} />
+        <StatOverviewCard icon={Video} label="视频总播放量" value={overview?.totalVideoPlays.toLocaleString() || "0"} sub={`本月 ${overview?.monthlyVideoPlays.toLocaleString() || "0"} 次`} color="#7c3aed" trend={overview?.videoPlaysTrend} />
+        <StatOverviewCard icon={Music} label="音乐总播放量" value={overview?.totalMusicPlays.toLocaleString() || "0"} sub={`本月 ${overview?.monthlyMusicPlays.toLocaleString() || "0"} 次`} color="#0891b2" trend={overview?.musicPlaysTrend} />
+        <StatOverviewCard icon={Globe} label="网站总访问量" value={overview?.totalVisits.toLocaleString() || "0"} sub={`本周 ${overview?.weeklyVisits.toLocaleString() || "0"} 次`} color="#059669" trend={overview?.visitsTrend} />
       </div>
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatOverviewCard icon={Eye} label="平均文章阅读" value="1,462" sub="篇均阅读" color="#d97706" />
-        <StatOverviewCard icon={Heart} label="总点赞数" value="12,089" sub="全平台累计" color="#db2777" trend={18.4} />
-        <StatOverviewCard icon={MessageCircle} label="总评论数" value="3,456" sub="博客+视频" color="#7c3aed" trend={12.1} />
-        <StatOverviewCard icon={Users} label="友链数量" value="8" sub="活跃 7 个" color="#059669" />
+        <StatOverviewCard icon={Eye} label="平均文章阅读" value={overview?.averageArticleViews.toLocaleString() || "0"} sub="篇均阅读" color="#d97706" />
+        <StatOverviewCard icon={Heart} label="总点赞数" value={overview?.totalLikes.toLocaleString() || "0"} sub="全平台累计" color="#db2777" trend={18.4} />
+        <StatOverviewCard icon={MessageCircle} label="总评论数" value={overview?.totalComments.toLocaleString() || "0"} sub="博客+视频" color="#7c3aed" trend={12.1} />
+        <StatOverviewCard icon={Users} label="友链数量" value={overview?.totalFriendLinks.toString() || "0"} sub={`活跃 ${overview?.activeFriendLinks || 0} 个`} color="#059669" />
       </div>
 
       {/* Charts Row 1 */}
@@ -121,7 +171,7 @@ export default function Stats() {
           </div>
           <p className="text-xs mb-4" style={{ color: "#a8956b" }}>月度阅读量、点赞数、评论数趋势</p>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={articleStatsData}>
+            <AreaChart data={articleTrend}>
               <defs>
                 <linearGradient id="articleGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#d97706" stopOpacity={0.2} />
@@ -150,7 +200,7 @@ export default function Stats() {
           </div>
           <p className="text-xs mb-4" style={{ color: "#a8956b" }}>月度播放量、点赞数趋势</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={videoStatsData}>
+            <BarChart data={videoTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f5ede0" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
@@ -176,7 +226,7 @@ export default function Stats() {
           </div>
           <p className="text-xs mb-4" style={{ color: "#a8956b" }}>月度播放量趋势</p>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={songStatsData}>
+            <AreaChart data={musicTrend}>
               <defs>
                 <linearGradient id="musicGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#0891b2" stopOpacity={0.25} />
@@ -205,8 +255,8 @@ export default function Stats() {
           <p className="text-xs mb-3" style={{ color: "#a8956b" }}>播放量分布</p>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={categoryDistribution} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" paddingAngle={3}>
-                {categoryDistribution.map((_, index) => (
+              <Pie data={categoryDist} cx="50%" cy="50%" innerRadius={45} outerRadius={72} dataKey="value" paddingAngle={3}>
+                {categoryDist.map((_, index) => (
                   <Cell key={index} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -214,7 +264,7 @@ export default function Stats() {
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1.5 mt-2">
-            {categoryDistribution.map((item, i) => (
+            {categoryDist.map((item, i) => (
               <div key={item.name} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
@@ -271,10 +321,10 @@ export default function Stats() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "建站时间", value: "2024-10-01", icon: Clock, color: "#d97706" },
-            { label: "运营天数", value: "177 天", icon: TrendingUp, color: "#7c3aed" },
-            { label: "内容总量", value: "20 项", icon: BookOpen, color: "#0891b2" },
-            { label: "网站评分", value: "98 分", icon: Star, color: "#059669" },
+            { label: "建站时间", value: siteInfo?.establishedDate || "2024-10-01", icon: Clock, color: "#d97706" },
+            { label: "运营天数", value: `${siteInfo?.runningDays || 0} 天`, icon: TrendingUp, color: "#7c3aed" },
+            { label: "内容总量", value: `${siteInfo?.totalContent || 0} 项`, icon: BookOpen, color: "#0891b2" },
+            { label: "网站评分", value: `${siteInfo?.siteScore || 0} 分`, icon: Star, color: "#059669" },
           ].map(({ label, value, icon: Icon, color }) => (
             <div
               key={label}
