@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+target/
+
+# IDE
+.idea/
+.vscode/
+*.iws
+*.iml
+*.ipr
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Java
+*.class
+*.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Claude
+.claude/
