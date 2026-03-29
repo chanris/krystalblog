@@ -26,6 +26,8 @@ public class MusicService {
     private final AlbumMapper albumMapper;
     private final SongCategoryMapper songCategoryMapper;
     private final SongTagMapper songTagMapper;
+    private final PlaylistMapper playlistMapper;
+    private final PlaylistMusicMapper playlistMusicMapper;
 
     /**
      * 分页查询音乐列表，支持多种筛选条件
@@ -241,6 +243,32 @@ public class MusicService {
         }
         songTagMapper.delete(
                 new LambdaQueryWrapper<SongTag>().eq(SongTag::getTag, tag));
+    }
+
+    public IPage<MusicVO> getLikedMusic(Long userId, int page, int size) {
+        Playlist liked = playlistMapper.selectOne(new LambdaQueryWrapper<Playlist>()
+                .eq(Playlist::getUserId, userId)
+                .eq(Playlist::getType, "LIKED"));
+
+        if (liked == null) {
+            return new Page<MusicVO>(page, size).setRecords(List.of()).setTotal(0);
+        }
+
+        List<Long> likedIds = playlistMusicMapper.selectList(new LambdaQueryWrapper<PlaylistMusic>()
+                        .eq(PlaylistMusic::getPlaylistId, liked.getId()))
+                .stream()
+                .map(PlaylistMusic::getMusicId)
+                .toList();
+
+        if (likedIds.isEmpty()) {
+            return new Page<MusicVO>(page, size).setRecords(List.of()).setTotal(0);
+        }
+
+        LambdaQueryWrapper<Music> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(Music::getId, likedIds).orderByDesc(Music::getCreatedAt);
+
+        IPage<Music> musicPage = musicMapper.selectPage(new Page<>(page, size), wrapper);
+        return musicPage.convert(this::toVO);
     }
 
     private void saveTags(Long songId, List<String> tags) {

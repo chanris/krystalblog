@@ -93,6 +93,67 @@ public class PlaylistService {
         }
     }
 
+    @Transactional
+    public Playlist getOrCreateLikedPlaylist(Long userId) {
+        Playlist liked = playlistMapper.selectOne(new LambdaQueryWrapper<Playlist>()
+                .eq(Playlist::getUserId, userId)
+                .eq(Playlist::getType, "LIKED"));
+
+        if (liked == null) {
+            liked = new Playlist();
+            liked.setName("我的喜欢");
+            liked.setUserId(userId);
+            liked.setType("LIKED");
+            liked.setIsPublic(false);
+            playlistMapper.insert(liked);
+        }
+        return liked;
+    }
+
+    public List<Long> getLikedMusicIds(Long userId) {
+        Playlist liked = playlistMapper.selectOne(new LambdaQueryWrapper<Playlist>()
+                .eq(Playlist::getUserId, userId)
+                .eq(Playlist::getType, "LIKED"));
+
+        if (liked == null) return List.of();
+
+        return playlistMusicMapper.selectList(new LambdaQueryWrapper<PlaylistMusic>()
+                .eq(PlaylistMusic::getPlaylistId, liked.getId()))
+                .stream().map(PlaylistMusic::getMusicId).toList();
+    }
+
+    @Transactional
+    public boolean addMusicToLiked(Long userId, Long musicId) {
+        Playlist liked = getOrCreateLikedPlaylist(userId);
+
+        Long count = playlistMusicMapper.selectCount(new LambdaQueryWrapper<PlaylistMusic>()
+                .eq(PlaylistMusic::getPlaylistId, liked.getId())
+                .eq(PlaylistMusic::getMusicId, musicId));
+
+        if (count > 0) return true;
+
+        PlaylistMusic pm = new PlaylistMusic();
+        pm.setPlaylistId(liked.getId());
+        pm.setMusicId(musicId);
+        pm.setSortOrder(0);
+        playlistMusicMapper.insert(pm);
+        return true;
+    }
+
+    @Transactional
+    public boolean removeMusicFromLiked(Long userId, Long musicId) {
+        Playlist liked = playlistMapper.selectOne(new LambdaQueryWrapper<Playlist>()
+                .eq(Playlist::getUserId, userId)
+                .eq(Playlist::getType, "LIKED"));
+
+        if (liked == null) return false;
+
+        playlistMusicMapper.delete(new LambdaQueryWrapper<PlaylistMusic>()
+                .eq(PlaylistMusic::getPlaylistId, liked.getId())
+                .eq(PlaylistMusic::getMusicId, musicId));
+        return true;
+    }
+
     private PlaylistVO toVO(Playlist p) {
         User user = userMapper.selectById(p.getUserId());
         List<Music> musicList = playlistMusicMapper.selectMusicByPlaylistId(p.getId());

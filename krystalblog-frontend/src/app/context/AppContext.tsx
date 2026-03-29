@@ -6,6 +6,9 @@ interface AppContextType {
   isAdmin: boolean;
   setIsAdmin: (v: boolean) => void;
 
+  // Login state
+  isLoggedIn: boolean;
+
   // Sidebar
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
@@ -30,6 +33,7 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentSong, setCurrentSongState] = useState<Song | null>(null);
   const [playlist, setPlaylist] = useState<Song[]>([]);
@@ -86,16 +90,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 解析 JWT token 设置管理员状态
+  // 解析 JWT token 设置管理员状态和登录状态
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setIsAdmin(payload.role === 'ADMIN');
+        setIsLoggedIn(true);
       } catch (e) {
         console.error('解析token失败', e);
+        setIsLoggedIn(false);
       }
+    } else {
+      setIsLoggedIn(false);
     }
   }, []);
 
@@ -237,6 +245,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         isAdmin, setIsAdmin,
+        isLoggedIn,
         sidebarOpen, setSidebarOpen,
         currentSong, playlist, isPlaying, currentTime, duration, volume,
         setCurrentSong, closePlayer, togglePlay, nextSong, prevSong,

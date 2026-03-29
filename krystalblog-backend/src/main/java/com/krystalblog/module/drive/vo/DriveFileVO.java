@@ -11,6 +11,10 @@ public class DriveFileVO {
     private Long id;
     private String fileName;
     private String fileUrl;
+    private String storageProvider;
+    private String objectKey;
+    private String downloadUrl;
+    private String previewUrl;
     private String fileType;
     private Long fileSize;
     private Long folderId;

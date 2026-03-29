@@ -213,6 +213,18 @@ export const musicApi = {
   deleteTag: (tag: string) =>
     request.delete<Result<void>>(`/music/tags/${encodeURIComponent(tag)}`),
 
+  like: (id: number) =>
+    request.post<Result<boolean>>(`/music/${id}/like`),
+
+  unlike: (id: number) =>
+    request.delete<Result<boolean>>(`/music/${id}/like`),
+
+  getLikedIds: () =>
+    request.get<Result<number[]>>('/music/liked/ids'),
+
+  getLiked: (params: { page?: number; size?: number }) =>
+    request.get<Result<PageResult<any>>>('/music/liked', { params }),
+
   playlists: () =>
     request.get<Result<any[]>>('/playlists'),
 

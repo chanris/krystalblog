@@ -13,14 +13,15 @@ import {
 import { toast } from "sonner";
 
 export default function Music() {
-  const { setCurrentSong, currentSong, isPlaying, togglePlay, isAdmin } = useApp();
+  const { setCurrentSong, currentSong, isPlaying, togglePlay, isAdmin, isLoggedIn } = useApp();
 
   // 筛选状态
   const [search, setSearch] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeArtistId, setActiveArtistId] = useState<number | null>(null);
-  const [likedSongs, setLikedSongs] = useState<Set<number>>(new Set());
+  const [likedMusicIds, setLikedMusicIds] = useState<Set<number>>(new Set());
+  const [showLikedOnly, setShowLikedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   // 分页
@@ -51,6 +52,15 @@ export default function Music() {
   const loadMusic = useCallback(async () => {
     try {
       setLoading(true);
+
+      if (showLikedOnly && isLoggedIn) {
+        const res = await musicApi.getLiked({ page, size: pageSize });
+        setSongs(res.data.records);
+        setTotal(res.data.total);
+        setTotalPages(Math.ceil(res.data.total / pageSize));
+        return;
+      }
+
       const params: any = { page, size: pageSize };
       if (search) params.keyword = search;
       if (activeCategoryId) params.categoryId = activeCategoryId;
@@ -66,7 +76,7 @@ export default function Music() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, activeCategoryId, activeTag, activeArtistId]);
+  }, [page, search, activeCategoryId, activeTag, activeArtistId, showLikedOnly, isLoggedIn]);
 
   // 加载侧边栏数据
   const loadSidebarData = useCallback(async () => {
@@ -86,9 +96,21 @@ export default function Music() {
     }
   }, []);
 
+  // 加载用户喜欢的歌曲ID列表
+  const loadLikedMusic = useCallback(async () => {
+    if (!isLoggedIn) return;
+    try {
+      const res = await musicApi.getLikedIds();
+      setLikedMusicIds(new Set(res.data));
+    } catch (error) {
+      console.error("加载喜欢列表失败:", error);
+    }
+  }, [isLoggedIn]);
+
   useEffect(() => {
     loadSidebarData();
-  }, [loadSidebarData]);
+    loadLikedMusic();
+  }, [loadSidebarData, loadLikedMusic]);
 
   // 筛选条件变化时重新加载
   useEffect(() => {
@@ -98,7 +120,35 @@ export default function Music() {
   // 筛选条件变化时重置页码
   useEffect(() => {
     setPage(1);
-  }, [search, activeCategoryId, activeTag, activeArtistId]);
+  }, [search, activeCategoryId, activeTag, activeArtistId, showLikedOnly]);
+
+  const handleLike = async (songId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!isLoggedIn) {
+      toast.error("请先登录");
+      return;
+    }
+
+    const isLiked = likedMusicIds.has(songId);
+    try {
+      if (isLiked) {
+        await musicApi.unlike(songId);
+        setLikedMusicIds(prev => {
+          const next = new Set(prev);
+          next.delete(songId);
+          return next;
+        });
+        toast.success("已取消喜欢");
+      } else {
+        await musicApi.like(songId);
+        setLikedMusicIds(prev => new Set(prev).add(songId));
+        toast.success("已添加到我的喜欢");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "操作失败");
+    }
+  };
 
   const handlePlay = (song: any) => {
     // 将后端数据转换为 AppContext 中 Song 类型兼容的格式
@@ -272,23 +322,49 @@ export default function Music() {
           <div className="flex gap-2 flex-wrap mb-4">
             <motion.button
               whileTap={{ scale: 0.97 }}
-              onClick={() => setActiveCategoryId(null)}
+              onClick={() => {
+                setActiveCategoryId(null);
+                setShowLikedOnly(false);
+              }}
               className="px-3.5 py-1.5 rounded-full text-sm transition-all"
               style={{
-                background: activeCategoryId === null ? "#d97706" : "white",
-                color: activeCategoryId === null ? "white" : "#78716c",
-                border: activeCategoryId === null ? "none" : "1.5px solid #f3e8d0",
-                fontWeight: activeCategoryId === null ? 500 : 400,
-                boxShadow: activeCategoryId === null ? "0 2px 8px rgba(217,119,6,0.3)" : "none",
+                background: activeCategoryId === null && !showLikedOnly ? "#d97706" : "white",
+                color: activeCategoryId === null && !showLikedOnly ? "white" : "#78716c",
+                border: activeCategoryId === null && !showLikedOnly ? "none" : "1.5px solid #f3e8d0",
+                fontWeight: activeCategoryId === null && !showLikedOnly ? 500 : 400,
+                boxShadow: activeCategoryId === null && !showLikedOnly ? "0 2px 8px rgba(217,119,6,0.3)" : "none",
               }}
             >
               全部
             </motion.button>
+            {isLoggedIn && (
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  setShowLikedOnly(!showLikedOnly);
+                  setActiveCategoryId(null);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm transition-all"
+                style={{
+                  background: showLikedOnly ? "#d97706" : "white",
+                  color: showLikedOnly ? "white" : "#78716c",
+                  border: showLikedOnly ? "none" : "1.5px solid #f3e8d0",
+                  fontWeight: showLikedOnly ? 500 : 400,
+                  boxShadow: showLikedOnly ? "0 2px 8px rgba(217,119,6,0.3)" : "none",
+                }}
+              >
+                <Heart size={14} fill={showLikedOnly ? "white" : "none"} />
+                我的喜欢
+              </motion.button>
+            )}
             {categories.map((cat: any) => (
               <motion.button
                 key={cat.id}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => setActiveCategoryId(activeCategoryId === cat.id ? null : cat.id)}
+                onClick={() => {
+                  setActiveCategoryId(activeCategoryId === cat.id ? null : cat.id);
+                  setShowLikedOnly(false);
+                }}
                 className="px-3.5 py-1.5 rounded-full text-sm transition-all"
                 style={{
                   background: activeCategoryId === cat.id ? "#d97706" : "white",
@@ -432,21 +508,15 @@ export default function Music() {
 
                       {/* Duration + Actions */}
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setLikedSongs((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(song.id)) next.delete(song.id);
-                              else next.add(song.id);
-                              return next;
-                            });
-                          }}
-                          style={{ color: likedSongs.has(song.id) ? "#d97706" : "#a8956b" }}
-                        >
-                          <Heart size={13} fill={likedSongs.has(song.id) ? "#d97706" : "none"} />
-                        </button>
+                        {isLoggedIn && (
+                          <button
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => handleLike(song.id, e)}
+                            style={{ color: likedMusicIds.has(song.id) ? "#d97706" : "#a8956b" }}
+                          >
+                            <Heart size={13} fill={likedMusicIds.has(song.id) ? "#d97706" : "none"} />
+                          </button>
+                        )}
                         <span className="text-xs" style={{ color: "#a8956b" }}>
                           {formatDuration(song.duration)}
                         </span>

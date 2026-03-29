@@ -14,4 +14,5 @@ public class Playlist extends BaseEntity {
     private String coverImage;
     private Long userId;
     private Boolean isPublic;
+    private String type; // NORMAL, LIKED
 }

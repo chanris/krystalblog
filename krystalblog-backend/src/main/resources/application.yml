@@ -51,6 +51,28 @@ springdoc:
 app:
   upload:
     path: ./uploads
+  oss:
+    enabled: false
+    endpoint:
+    bucket:
+    access-key-id:
+    access-key-secret:
+    cdn-domain:
+    encryption:
+      enabled: true
+      type: AES256
+      kms-key-id:
+    presign:
+      download-ttl-seconds: 600
+      preview-ttl-seconds: 600
+    multipart:
+      part-size-bytes: 8388608
+      max-parts: 10000
+    migration:
+      run: false
+      batch-size: 200
+      max-retries: 3
+      report-path:
   jwt:
     secret: krystalblog-jwt-secret-key-must-be-at-least-256-bits-long-for-hs256
     access-token-expiration: 86400000   # 24 hours

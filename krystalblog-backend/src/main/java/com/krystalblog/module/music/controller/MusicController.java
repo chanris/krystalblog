@@ -2,9 +2,11 @@ package com.krystalblog.module.music.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.krystalblog.common.result.Result;
+import com.krystalblog.common.util.SecurityUtil;
 import com.krystalblog.entity.SongCategory;
 import com.krystalblog.module.music.dto.MusicDTO;
 import com.krystalblog.module.music.service.MusicService;
+import com.krystalblog.module.music.service.PlaylistService;
 import com.krystalblog.module.music.vo.ArtistVO;
 import com.krystalblog.module.music.vo.MusicVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +25,8 @@ import java.util.List;
 public class MusicController {
 
     private final MusicService musicService;
+    private final PlaylistService playlistService;
+    private final SecurityUtil securityUtil;
 
     @Operation(summary = "获取音乐列表")
     @GetMapping
@@ -104,5 +108,39 @@ public class MusicController {
     public Result<Void> deleteTag(@PathVariable String tag) {
         musicService.deleteTag(tag);
         return Result.success();
+    }
+
+    @Operation(summary = "喜欢歌曲")
+    @PostMapping("/{id}/like")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Boolean> likeMusic(@PathVariable Long id) {
+        Long userId = securityUtil.getCurrentUserId();
+        return Result.success(playlistService.addMusicToLiked(userId, id));
+    }
+
+    @Operation(summary = "取消喜欢")
+    @DeleteMapping("/{id}/like")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Boolean> unlikeMusic(@PathVariable Long id) {
+        Long userId = securityUtil.getCurrentUserId();
+        return Result.success(playlistService.removeMusicFromLiked(userId, id));
+    }
+
+    @Operation(summary = "获取用户喜欢的歌曲ID列表")
+    @GetMapping("/liked/ids")
+    @PreAuthorize("isAuthenticated()")
+    public Result<List<Long>> getLikedMusicIds() {
+        Long userId = securityUtil.getCurrentUserId();
+        return Result.success(playlistService.getLikedMusicIds(userId));
+    }
+
+    @Operation(summary = "获取用户喜欢的歌曲列表")
+    @GetMapping("/liked")
+    @PreAuthorize("isAuthenticated()")
+    public Result<IPage<MusicVO>> getLikedMusic(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Long userId = securityUtil.getCurrentUserId();
+        return Result.success(musicService.getLikedMusic(userId, page, size));
     }
 }

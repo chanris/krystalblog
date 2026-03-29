@@ -13,6 +13,12 @@ public class DriveFile extends BaseEntity {
     @TableField("name")
     private String fileName;
     private String fileUrl;
+    private String storageProvider;
+    private String objectKey;
+    private String bucket;
+    private String etag;
+    private String checksumSha256;
+    private java.time.LocalDateTime lastAccessedAt;
 
     @TableField("mime_type")
     private String fileType;
