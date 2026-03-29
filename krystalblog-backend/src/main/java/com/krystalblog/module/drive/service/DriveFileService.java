@@ -583,7 +583,47 @@ public class DriveFileService {
         }
         String cdnDomain = ossStorageService.getCdnDomain();
         if (!StringUtils.hasText(cdnDomain)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS未配置cdnDomain，无法生成长期可访问URL");
+            String endpoint = ossStorageService.getProperties().getEndpoint();
+            String bucket = ossStorageService.getProperties().getBucket();
+            String key = file.getObjectKey().startsWith("/") ? file.getObjectKey().substring(1) : file.getObjectKey();
+
+            if (StringUtils.hasText(endpoint) && StringUtils.hasText(bucket)) {
+                String ep = endpoint.trim();
+                String scheme = "https";
+                String host = ep;
+                String pathPrefix = "";
+                try {
+                    if (ep.contains("://")) {
+                        java.net.URI uri = java.net.URI.create(ep);
+                        if (StringUtils.hasText(uri.getScheme())) {
+                            scheme = uri.getScheme();
+                        }
+                        if (StringUtils.hasText(uri.getHost())) {
+                            host = uri.getHost();
+                        }
+                        if (StringUtils.hasText(uri.getPath())) {
+                            pathPrefix = uri.getPath();
+                        }
+                    } else {
+                        host = ep.replaceAll("^/+", "").replaceAll("/+$", "");
+                    }
+                } catch (Exception ignored) {
+                    host = ep.replaceAll("^/+", "").replaceAll("/+$", "");
+                }
+
+                String baseHost = host.toLowerCase(Locale.ROOT).startsWith((bucket + ".").toLowerCase(Locale.ROOT))
+                        ? host
+                        : bucket + "." + host;
+                String prefix = StringUtils.hasText(pathPrefix) ? pathPrefix : "";
+                if (StringUtils.hasText(prefix) && !prefix.startsWith("/")) prefix = "/" + prefix;
+                if (StringUtils.hasText(prefix) && prefix.endsWith("/")) prefix = prefix.substring(0, prefix.length() - 1);
+                return scheme + "://" + baseHost + prefix + "/" + key;
+            }
+
+            if (StringUtils.hasText(file.getFileUrl()) && (file.getFileUrl().startsWith("http://") || file.getFileUrl().startsWith("https://"))) {
+                return file.getFileUrl();
+            }
+            return key;
         }
         String base = cdnDomain.endsWith("/") ? cdnDomain.substring(0, cdnDomain.length() - 1) : cdnDomain;
         String key = file.getObjectKey().startsWith("/") ? file.getObjectKey().substring(1) : file.getObjectKey();

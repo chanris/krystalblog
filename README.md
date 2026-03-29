@@ -132,7 +132,7 @@ KrystalBlog/
 
 ## 开发工具
 
-Claude Code + Trae IDE
+Figma Make（前端原型）+ Claude Code + Trae IDE
 
 ## 开发命令
 
