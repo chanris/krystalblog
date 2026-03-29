@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "../components/ui/dialog";
 import { toast } from "sonner";
-import DriveFilePickerDialog from "../components/DriveFilePickerDialog";
+import DriveFilePickerDialog, { getDriveFileDisplayName } from "../components/DriveFilePickerDialog";
 import type { DriveFileVO } from "../services/api";
 
 const DEFAULT_COVER = "https://via.placeholder.com/640x360?text=Video";
@@ -362,7 +362,7 @@ export default function Videos() {
     setUploadForm((prev) => ({
       ...prev,
       driveFileId: String(file.id),
-      driveFileName: file.fileName,
+      driveFileName: getDriveFileDisplayName(file as any),
       videoUrl: "",
     }));
   };

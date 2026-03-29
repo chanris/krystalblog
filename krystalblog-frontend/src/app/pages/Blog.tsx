@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { articleApi, tagApi, categoryApi } from "../services/api";
+import ArchiveList from "../components/ArchiveList";
 
 export default function Blog() {
   const { isAdmin } = useApp();
@@ -73,6 +74,7 @@ export default function Blog() {
     if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
     if (activeCategory !== "全部" && p.categoryName !== activeCategory) return false;
     if (activeTag && !p.tags?.some((t: any) => t.name === activeTag)) return false;
+    if (activeArchive && !p.publishTime?.startsWith(activeArchive)) return false;
     return true;
   });
 
@@ -469,6 +471,9 @@ export default function Blog() {
             )}
           </div>
         </div>
+
+        {/* Archives */}
+        <ArchiveList activeArchive={activeArchive} onArchiveChange={setActiveArchive} />
       </aside>
 
       {/* Create Article Modal */}

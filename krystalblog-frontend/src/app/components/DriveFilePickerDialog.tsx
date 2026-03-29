@@ -12,6 +12,23 @@ type Props = {
   onConfirm: (files: DriveFileVO[]) => void;
 };
 
+export function getDriveFileDisplayName(file: Partial<DriveFileVO> & Record<string, any>): string {
+  const fileName = typeof file.fileName === "string" ? file.fileName.trim() : "";
+  if (fileName) return fileName;
+  const name = typeof file.name === "string" ? file.name.trim() : "";
+  if (name) return name;
+  const filename = typeof file.filename === "string" ? file.filename.trim() : "";
+  if (filename) return filename;
+  const originalName = typeof file.originalName === "string" ? file.originalName.trim() : "";
+  if (originalName) return originalName;
+  const objectKey = typeof file.objectKey === "string" ? file.objectKey.trim() : "";
+  if (objectKey) return objectKey.split("/").filter(Boolean).pop() || objectKey;
+  const fileUrl = typeof file.fileUrl === "string" ? file.fileUrl.trim() : "";
+  if (fileUrl) return fileUrl.split("/").filter(Boolean).pop() || fileUrl;
+  const id = typeof file.id === "number" ? String(file.id) : "";
+  return id ? `DriveFile#${id}` : "DriveFile";
+}
+
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -310,6 +327,7 @@ export default function DriveFilePickerDialog({
                 ) : (
                   files.map((f) => {
                     const checked = selectedIds.has(f.id);
+                    const displayName = getDriveFileDisplayName(f as any);
                     return (
                       <button
                         key={f.id}
@@ -326,8 +344,8 @@ export default function DriveFilePickerDialog({
                         <span className="flex justify-center">
                           <Checkbox checked={checked} />
                         </span>
-                        <span className="truncate" title={f.fileName}>
-                          {f.fileName}
+                        <span className="truncate" title={displayName}>
+                          {displayName}
                         </span>
                         <span className="text-right" style={{ color: "#78716c" }}>
                           {formatBytes(f.fileSize)}
