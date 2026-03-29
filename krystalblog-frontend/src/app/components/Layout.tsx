@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, LayoutGroup } from "motion/react";
 import {
   Home, BookOpen, Video, Music, HardDrive, Link2,
   BarChart3, Menu, X, Search, Bell, Settings,
@@ -8,6 +8,38 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { MusicPlayer } from "./MusicPlayer";
+
+type NavItemProps = { to: string; icon: any; label: string; exact?: boolean };
+
+const NavItem = memo(function NavItem({ to, icon: Icon, label, exact }: NavItemProps) {
+  return (
+    <NavLink
+      to={to}
+      end={exact}
+      className={({ isActive }) =>
+        `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group relative ${
+          isActive
+            ? "text-amber-700 bg-amber-50"
+            : "text-stone-600 hover:text-amber-700 hover:bg-amber-50/70"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <motion.div
+              layoutId="nav-indicator"
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-amber-500"
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
+            />
+          )}
+          <Icon size={18} className="shrink-0" />
+          <span className="text-sm" style={{ fontWeight: isActive ? 500 : 400 }}>{label}</span>
+        </>
+      )}
+    </NavLink>
+  );
+});
 
 const navItems = [
   { to: "/", icon: Home, label: "首页", exact: true },
@@ -66,34 +98,6 @@ export function Layout() {
     navigate('/');
   };
 
-  const NavItem = ({ to, icon: Icon, label, exact }: { to: string; icon: any; label: string; exact?: boolean }) => (
-    <NavLink
-      to={to}
-      end={exact}
-      className={({ isActive }) =>
-        `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group relative ${
-          isActive
-            ? "text-amber-700 bg-amber-50"
-            : "text-stone-600 hover:text-amber-700 hover:bg-amber-50/70"
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
-          {isActive && (
-            <motion.div
-              layoutId="nav-indicator"
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-amber-500"
-              transition={{ type: "spring", stiffness: 400, damping: 35 }}
-            />
-          )}
-          <Icon size={18} className="shrink-0" />
-          <span className="text-sm" style={{ fontWeight: isActive ? 500 : 400 }}>{label}</span>
-        </>
-      )}
-    </NavLink>
-  );
-
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#faf8f5" }}>
       {/* Mobile Overlay */}
@@ -142,26 +146,28 @@ export function Layout() {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-              <p style={{ fontSize: "0.65rem", color: "#a8956b", fontWeight: 600, letterSpacing: "0.08em", padding: "0 0.75rem", marginBottom: "0.5rem" }}>
-                主导航
-              </p>
-              {navItems.map((item) => (
-                <NavItem key={item.to} {...item} />
-              ))}
+            <LayoutGroup>
+              <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+                <p style={{ fontSize: "0.65rem", color: "#a8956b", fontWeight: 600, letterSpacing: "0.08em", padding: "0 0.75rem", marginBottom: "0.5rem" }}>
+                  主导航
+                </p>
+                {navItems.map((item) => (
+                  <NavItem key={item.to} {...item} />
+                ))}
 
-              {isAdmin && (
-                <>
-                  <div style={{ height: 1, background: "#f3e8d0", margin: "0.75rem 0.5rem" }} />
-                  <p style={{ fontSize: "0.65rem", color: "#a8956b", fontWeight: 600, letterSpacing: "0.08em", padding: "0 0.75rem", marginBottom: "0.5rem" }}>
-                    管理员
-                  </p>
-                  {adminItems.map((item) => (
-                    <NavItem key={item.to} {...item} />
-                  ))}
-                </>
-              )}
-            </nav>
+                {isAdmin && (
+                  <>
+                    <div style={{ height: 1, background: "#f3e8d0", margin: "0.75rem 0.5rem" }} />
+                    <p style={{ fontSize: "0.65rem", color: "#a8956b", fontWeight: 600, letterSpacing: "0.08em", padding: "0 0.75rem", marginBottom: "0.5rem" }}>
+                      管理员
+                    </p>
+                    {adminItems.map((item) => (
+                      <NavItem key={item.to} {...item} />
+                    ))}
+                  </>
+                )}
+              </nav>
+            </LayoutGroup>
 
             {/* User Info */}
             <div className="p-3 border-t" style={{ borderColor: "#f3e8d0" }}>
