@@ -17,6 +17,7 @@ const typeColors: Record<string, { bg: string; text: string }> = {
   archive: { bg: "#fef3c7", text: "#d97706" },
   markdown: { bg: "#f0f9ff", text: "#0891b2" },
   video: { bg: "#fce7f3", text: "#db2777" },
+  audio: { bg: "#e0f2fe", text: "#0284c7" },
   word: { bg: "#eff6ff", text: "#3b82f6" },
   default: { bg: "#f5f5f4", text: "#78716c" },
 };
@@ -78,11 +79,13 @@ function toCategory(fileName: string, fileType?: string): string {
   if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) return "archive";
   if (ext === "md" || ext === "markdown") return "markdown";
   if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) return "video";
+  if (["mp3", "wav", "flac", "aac", "m4a", "ogg", "opus", "weba"].includes(ext)) return "audio";
   if (ext === "doc" || ext === "docx") return "word";
 
   const ft = (fileType || "").toLowerCase();
   if (ft.startsWith("image/")) return "image";
   if (ft.startsWith("video/")) return "video";
+  if (ft.startsWith("audio/")) return "audio";
   return "default";
 }
 
@@ -96,6 +99,7 @@ function toIcon(category: string): string {
       archive: "📦",
       markdown: "📝",
       video: "🎬",
+      audio: "🎵",
       word: "📃",
       default: "📁",
     }[category] || "📁"
