@@ -16,6 +16,12 @@ public class Video extends BaseEntity {
     private String slug;
     private String description;
     private String videoUrl;
+    private Long driveFileId;
+    private String videoMimeType;
+    private Long videoSizeBytes;
+    private Integer width;
+    private Integer height;
+    private Integer videoBitrateKbps;
     @TableField("thumbnail")
     private String coverImage;
     private Long duration;

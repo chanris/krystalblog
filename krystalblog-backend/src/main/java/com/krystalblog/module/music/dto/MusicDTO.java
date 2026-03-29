@@ -1,19 +1,19 @@
 package com.krystalblog.module.music.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.util.List;
 
 @Data
 public class MusicDTO {
-    @NotBlank(message = "标题不能为空")
+    @jakarta.validation.constraints.NotBlank(message = "标题不能为空")
     private String title;
     private String slug;
     private String description;
     private String cover;
-    @NotBlank(message = "音频URL不能为空")
     private String audioUrl;
+    private Long driveFileId;
+    private Integer audioBitrateKbps;
     private Integer duration;
     private String lyrics;
     private String lyricsUrl;

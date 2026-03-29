@@ -12,6 +12,12 @@ public class VideoVO {
     private String title;
     private String description;
     private String videoUrl;
+    private Long driveFileId;
+    private String videoMimeType;
+    private Long videoSizeBytes;
+    private Integer width;
+    private Integer height;
+    private Integer videoBitrateKbps;
     private String coverImage;
     private Long duration;
     private Long categoryId;

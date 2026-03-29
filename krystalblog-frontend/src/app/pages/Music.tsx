@@ -7,10 +7,12 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { musicApi } from "../services/api";
+import type { DriveFileVO } from "../services/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/app/components/ui/dialog";
+} from "../components/ui/dialog";
 import { toast } from "sonner";
+import DriveFilePickerDialog from "../components/DriveFilePickerDialog";
 
 export default function Music() {
   const { setCurrentSong, currentSong, isPlaying, togglePlay, isAdmin, isLoggedIn } = useApp();
@@ -43,10 +45,22 @@ export default function Music() {
   const [submitting, setSubmitting] = useState(false);
   const [editingSong, setEditingSong] = useState<any>(null); // 当前编辑的歌曲，null 表示新建
   const emptyForm = {
-    title: "", audioUrl: "", cover: "", description: "",
-    duration: "", artistId: "", artistName: "", categoryId: "", tagsInput: "", lyrics: "",
+    title: "",
+    audioUrl: "",
+    driveFileId: "",
+    driveFileName: "",
+    audioBitrateKbps: "",
+    cover: "",
+    description: "",
+    duration: "",
+    artistId: "",
+    artistName: "",
+    categoryId: "",
+    tagsInput: "",
+    lyrics: "",
   };
   const [uploadForm, setUploadForm] = useState(emptyForm);
+  const [showDrivePicker, setShowDrivePicker] = useState(false);
 
   // 加载歌曲列表
   const loadMusic = useCallback(async () => {
@@ -203,6 +217,9 @@ export default function Music() {
     setUploadForm({
       title: song.title || "",
       audioUrl: song.audioUrl || "",
+      driveFileId: song.driveFileId ? String(song.driveFileId) : "",
+      driveFileName: song.driveFileId ? `DriveFile#${song.driveFileId}` : "",
+      audioBitrateKbps: song.audioBitrateKbps ? String(song.audioBitrateKbps) : "",
       cover: song.cover || "",
       description: song.description || "",
       duration: song.duration ? String(song.duration) : "",
@@ -221,8 +238,9 @@ export default function Music() {
       toast.error("请输入歌曲标题");
       return;
     }
-    if (!uploadForm.audioUrl.trim()) {
-      toast.error("请输入音频URL");
+    const driveFileIdNum = uploadForm.driveFileId ? Number(uploadForm.driveFileId) : undefined;
+    if (!driveFileIdNum && !uploadForm.audioUrl.trim()) {
+      toast.error("请输入音频URL或从网盘选择");
       return;
     }
 
@@ -230,11 +248,16 @@ export default function Music() {
     try {
       const data: any = {
         title: uploadForm.title.trim(),
-        audioUrl: uploadForm.audioUrl.trim(),
       };
+      if (driveFileIdNum) {
+        data.driveFileId = driveFileIdNum;
+      } else {
+        data.audioUrl = uploadForm.audioUrl.trim();
+      }
       if (uploadForm.cover.trim()) data.cover = uploadForm.cover.trim();
       if (uploadForm.description.trim()) data.description = uploadForm.description.trim();
       if (uploadForm.duration && Number(uploadForm.duration) > 0) data.duration = Number(uploadForm.duration);
+      if (uploadForm.audioBitrateKbps && Number(uploadForm.audioBitrateKbps) > 0) data.audioBitrateKbps = Number(uploadForm.audioBitrateKbps);
       if ((uploadForm.artistName || "").trim()) {
         data.artistName = (uploadForm.artistName || "").trim();
       } else if (uploadForm.artistId) {
@@ -267,6 +290,17 @@ export default function Music() {
 
   const updateField = (field: string, value: string) => {
     setUploadForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const applyDriveSelection = (files: DriveFileVO[]) => {
+    const file = files[0];
+    if (!file) return;
+    setUploadForm((prev) => ({
+      ...prev,
+      driveFileId: String(file.id),
+      driveFileName: file.fileName,
+      audioUrl: "",
+    }));
   };
 
   return (
@@ -914,7 +948,7 @@ export default function Music() {
       </div>
 
       {/* Upload Music Dialog */}
-      <Dialog open={showUploadDialog} onOpenChange={(open) => {
+      <Dialog open={showUploadDialog} onOpenChange={(open: boolean) => {
         setShowUploadDialog(open);
         if (!open) {
           setEditingSong(null);
@@ -952,17 +986,43 @@ export default function Music() {
             {/* 音频URL */}
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "#1c1917", fontWeight: 500 }}>
-                音频URL <span style={{ color: "#dc2626" }}>*</span>
+                音频来源 <span style={{ color: "#dc2626" }}>*</span>
               </label>
-              <input
-                value={uploadForm.audioUrl}
-                onChange={(e) => updateField("audioUrl", e.target.value)}
-                placeholder="请输入音频文件地址"
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-colors"
-                style={{ background: "white", border: "1.5px solid #f3e8d0", color: "#1c1917" }}
-                onFocus={(e) => (e.target.style.borderColor = "#d97706")}
-                onBlur={(e) => (e.target.style.borderColor = "#f3e8d0")}
-              />
+              <div className="flex gap-2">
+                <input
+                  value={uploadForm.audioUrl}
+                  onChange={(e) => updateField("audioUrl", e.target.value)}
+                  placeholder={uploadForm.driveFileId ? "已选择网盘文件" : "请输入音频文件地址"}
+                  className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-colors"
+                  style={{ background: "white", border: "1.5px solid #f3e8d0", color: "#1c1917" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#d97706")}
+                  onBlur={(e) => (e.target.style.borderColor = "#f3e8d0")}
+                  disabled={!!uploadForm.driveFileId}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDrivePicker(true)}
+                  className="px-3 py-2 rounded-xl text-sm whitespace-nowrap"
+                  style={{ background: "white", border: "1.5px solid #f3e8d0", color: "#d97706", fontWeight: 500 }}
+                >
+                  从网盘选择
+                </button>
+              </div>
+              {uploadForm.driveFileId && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="text-xs truncate" style={{ color: "#78716c" }} title={uploadForm.driveFileName}>
+                    已选择：{uploadForm.driveFileName}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setUploadForm((prev) => ({ ...prev, driveFileId: "", driveFileName: "" }))}
+                    className="text-xs px-2 py-1 rounded-lg"
+                    style={{ border: "1px solid #f3e8d0", color: "#57534e", background: "white" }}
+                  >
+                    清除
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 封面URL */}
@@ -1082,6 +1142,23 @@ export default function Music() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm mb-1.5" style={{ color: "#1c1917", fontWeight: 500 }}>
+                码率（kbps）
+              </label>
+              <input
+                type="number"
+                value={uploadForm.audioBitrateKbps}
+                onChange={(e) => updateField("audioBitrateKbps", e.target.value)}
+                placeholder="可选，如 320"
+                min="0"
+                className="w-full px-3 py-2 rounded-xl text-sm outline-none transition-colors"
+                style={{ background: "white", border: "1.5px solid #f3e8d0", color: "#1c1917" }}
+                onFocus={(e) => (e.target.style.borderColor = "#d97706")}
+                onBlur={(e) => (e.target.style.borderColor = "#f3e8d0")}
+              />
+            </div>
+
             {/* 描述 */}
             <div>
               <label className="block text-sm mb-1.5" style={{ color: "#1c1917", fontWeight: 500 }}>
@@ -1159,6 +1236,14 @@ export default function Music() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DriveFilePickerDialog
+        open={showDrivePicker}
+        onOpenChange={setShowDrivePicker}
+        fileCategory="audio"
+        multiSelect={false}
+        onConfirm={applyDriveSelection}
+      />
 
       <style>{`
         @keyframes spin {

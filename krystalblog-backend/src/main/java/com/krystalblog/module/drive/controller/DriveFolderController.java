@@ -23,6 +23,7 @@ public class DriveFolderController {
 
     @Operation(summary = "获取文件夹列表")
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public Result<List<DriveFolderVO>> listFolders(
             @RequestParam(required = false) Long parentId,
             @RequestParam(required = false) String keyword) {
@@ -31,12 +32,14 @@ public class DriveFolderController {
 
     @Operation(summary = "获取文件夹详情")
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public Result<DriveFolderVO> getFolder(@PathVariable Long id) {
         return Result.success(folderService.getFolder(id));
     }
 
     @Operation(summary = "获取文件夹面包屑路径（从根到当前）")
     @GetMapping("/{id}/path")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<DriveFolderVO>> getFolderPath(@PathVariable Long id) {
         return Result.success(folderService.getFolderPath(id));
     }

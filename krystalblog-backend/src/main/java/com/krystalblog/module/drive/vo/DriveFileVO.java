@@ -23,6 +23,7 @@ public class DriveFileVO {
     private String uploaderName;
     private String status;
     private Long downloadCount;
+    private Long referenceCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

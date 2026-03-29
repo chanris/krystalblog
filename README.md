@@ -36,7 +36,7 @@
 | 博客详情 | `/blog/:id` | Markdown 渲染 + 评论 + 点赞 |
 | 视频 | `/videos` | 视频列表，分类筛选，瀑布流布局 |
 | 音乐 | `/music` | 歌曲列表，播放控制，喜欢收藏 |
-| 网盘 | `/drive` | 文件夹/文件管理（管理员） |
+| 网盘 | `/drive` | 文件夹/文件管理（管理员），支持为音乐/视频提供“从网盘选择”引用 |
 | 友链 | `/friends` | 友链展示，分类筛选 |
 | 统计 | `/stats` | 站点数据统计图表（管理员） |
 | 登录 | `/login` | 登录/注册 |
@@ -123,6 +123,12 @@ KrystalBlog/
 | 友链 | `/api/friends` | 友链列表 + 申请 |
 | 网盘 | `/api/drive` | 文件夹/文件管理 |
 | 统计 | `/api/stats` | 站点统计数据 |
+
+### 网盘选择引用（音乐/视频）
+
+- 网盘文件选择器：`GET /api/drive/files/picker`（支持按 `fileCategory=audio|video`、上传时间区间、大小/时间排序等筛选；需登录）
+- 音乐创建/更新：`POST/PUT /api/music` 支持传 `driveFileId`（引用网盘文件）或 `audioUrl`（外链二选一）
+- 视频创建/更新：`POST/PUT /api/videos` 支持传 `driveFileId`（引用网盘文件）或 `videoUrl`（外链二选一）
 
 ## 开发工具
 

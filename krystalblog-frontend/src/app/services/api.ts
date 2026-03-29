@@ -54,12 +54,16 @@ export interface VideoCategoryManageDTO {
 export interface VideoCreateDTO {
   title: string;
   description?: string;
-  videoUrl: string;
+  videoUrl?: string;
+  driveFileId?: number;
   coverImage?: string;
   duration?: number;
   categoryId: number;
   status?: string;
   publishedAt?: string;
+  width?: number;
+  height?: number;
+  videoBitrateKbps?: number;
 }
 
 export interface CommentVO {
@@ -198,10 +202,10 @@ export const musicApi = {
   tags: () =>
     request.get<Result<string[]>>('/music/tags'),
 
-  create: (data: { title: string; audioUrl: string; description?: string; cover?: string; duration?: number; lyrics?: string; lyricsUrl?: string; artistId?: number; artistName?: string; albumId?: number; categoryId?: number; status?: string; tags?: string[] }) =>
+  create: (data: { title: string; audioUrl?: string; driveFileId?: number; audioBitrateKbps?: number; description?: string; cover?: string; duration?: number; lyrics?: string; lyricsUrl?: string; artistId?: number; artistName?: string; albumId?: number; categoryId?: number; status?: string; tags?: string[] }) =>
     request.post<Result<any>>('/music', data),
 
-  update: (id: number, data: { title?: string; audioUrl?: string; description?: string; cover?: string; duration?: number; lyrics?: string; lyricsUrl?: string; artistId?: number; artistName?: string; albumId?: number; categoryId?: number; status?: string; tags?: string[] }) =>
+  update: (id: number, data: { title?: string; audioUrl?: string; driveFileId?: number; audioBitrateKbps?: number; description?: string; cover?: string; duration?: number; lyrics?: string; lyricsUrl?: string; artistId?: number; artistName?: string; albumId?: number; categoryId?: number; status?: string; tags?: string[] }) =>
     request.put<Result<any>>(`/music/${id}`, data),
 
   delete: (id: number) =>
@@ -277,6 +281,10 @@ export interface DriveFileVO {
   id: number;
   fileName: string;
   fileUrl: string;
+  storageProvider?: string;
+  objectKey?: string;
+  downloadUrl?: string;
+  previewUrl?: string;
   fileType?: string;
   fileSize: number;
   folderId?: number | null;
@@ -285,6 +293,7 @@ export interface DriveFileVO {
   uploaderName?: string;
   status?: string;
   downloadCount?: number;
+  referenceCount?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -347,6 +356,9 @@ export const driveApi = {
 
   files: (params?: { page?: number; size?: number; folderId?: number; keyword?: string }) =>
     request.get<Result<PageResult<DriveFileVO>>>('/drive/files', { params }),
+
+  filesPicker: (params?: { page?: number; size?: number; folderId?: number; keyword?: string; fileCategory?: string; mimePrefix?: string; uploadedAfterMillis?: number; uploadedBeforeMillis?: number; sortBy?: string }) =>
+    request.get<Result<PageResult<DriveFileVO>>>('/drive/files/picker', { params }),
 
   uploadMultipart: (data: FormData) =>
     request.post<Result<DriveFileVO>>('/drive/files/upload', data, { headers: { 'Content-Type': 'multipart/form-data' } }),

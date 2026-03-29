@@ -40,12 +40,14 @@ public class DriveFileController {
 
     @Operation(summary = "网盘统计信息")
     @GetMapping("/stats")
+    @PreAuthorize("isAuthenticated()")
     public Result<DriveStatsVO> stats() {
         return Result.success(fileService.getStats(quotaBytes));
     }
 
     @Operation(summary = "获取文件列表")
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public Result<IPage<DriveFileVO>> listFiles(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -54,8 +56,26 @@ public class DriveFileController {
         return Result.success(fileService.listFiles(page, size, folderId, keyword));
     }
 
+    @Operation(summary = "网盘文件选择器列表（支持筛选/排序）（需登录）")
+    @GetMapping("/picker")
+    @PreAuthorize("isAuthenticated()")
+    public Result<IPage<DriveFileVO>> listFilesForPicker(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long folderId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String fileCategory,
+            @RequestParam(required = false) String mimePrefix,
+            @RequestParam(required = false) Long uploadedAfterMillis,
+            @RequestParam(required = false) Long uploadedBeforeMillis,
+            @RequestParam(required = false) String sortBy
+    ) {
+        return Result.success(fileService.listFilesForPicker(page, size, folderId, keyword, fileCategory, mimePrefix, uploadedAfterMillis, uploadedBeforeMillis, sortBy));
+    }
+
     @Operation(summary = "获取文件详情")
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public Result<DriveFileVO> getFile(@PathVariable Long id) {
         return Result.success(fileService.getFileById(id));
     }

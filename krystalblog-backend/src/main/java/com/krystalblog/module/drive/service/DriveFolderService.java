@@ -30,6 +30,8 @@ public class DriveFolderService {
     private final SecurityUtil securityUtil;
 
     public List<DriveFolderVO> listFolders(Long parentId, String keyword) {
+        Long currentUserId = securityUtil.getCurrentUserId();
+        boolean admin = securityUtil.isAdmin();
         LambdaQueryWrapper<DriveFolder> wrapper = new LambdaQueryWrapper<>();
         if (parentId != null) {
             wrapper.eq(DriveFolder::getParentId, parentId);
@@ -39,6 +41,10 @@ public class DriveFolderService {
         if (StringUtils.hasText(keyword)) {
             wrapper.like(DriveFolder::getName, keyword);
         }
+        if (!admin) {
+            wrapper.eq(DriveFolder::getUserId, currentUserId);
+        }
+        wrapper.orderByDesc(DriveFolder::getCreatedAt);
         return folderMapper.selectList(wrapper).stream().map(this::toVO).toList();
     }
 
@@ -47,6 +53,7 @@ public class DriveFolderService {
         if (folder == null) {
             throw new BusinessException(ResultCode.FOLDER_NOT_FOUND);
         }
+        assertCanAccess(folder);
         return toVO(folder);
     }
 
@@ -58,6 +65,7 @@ public class DriveFolderService {
             if (folder == null) {
                 throw new BusinessException(ResultCode.FOLDER_NOT_FOUND);
             }
+            assertCanAccess(folder);
             path.add(0, toVO(folder));
             current = folder.getParentId();
         }
@@ -78,6 +86,7 @@ public class DriveFolderService {
     public DriveFolderVO updateFolder(Long id, DriveFolderDTO dto) {
         DriveFolder folder = folderMapper.selectById(id);
         if (folder == null) return null;
+        assertCanAccess(folder);
         if (dto.getName() != null) folder.setName(dto.getName());
         if (dto.getParentId() != null) folder.setParentId(dto.getParentId());
         folderMapper.updateById(folder);
@@ -90,10 +99,14 @@ public class DriveFolderService {
         if (folder == null) {
             throw new BusinessException(ResultCode.FOLDER_NOT_FOUND);
         }
+        assertCanAccess(folder);
         deleteFolderRecursively(id);
     }
 
     private void deleteFolderRecursively(Long id) {
+        DriveFolder folder = folderMapper.selectById(id);
+        if (folder == null) return;
+        assertCanAccess(folder);
         List<Long> childFolderIds = folderMapper.selectList(
                         new LambdaQueryWrapper<DriveFolder>().eq(DriveFolder::getParentId, id)
                 ).stream()
@@ -126,5 +139,14 @@ public class DriveFolderService {
                 .createdAt(f.getCreatedAt())
                 .updatedAt(f.getUpdatedAt())
                 .build();
+    }
+
+    private void assertCanAccess(DriveFolder folder) {
+        if (folder == null) return;
+        if (securityUtil.isAdmin()) return;
+        Long currentUserId = securityUtil.getCurrentUserId();
+        if (currentUserId == null || folder.getUserId() == null || !currentUserId.equals(folder.getUserId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权访问该网盘文件夹");
+        }
     }
 }

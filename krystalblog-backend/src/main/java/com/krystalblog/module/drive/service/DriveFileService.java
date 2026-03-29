@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -56,10 +57,20 @@ public class DriveFileService {
     private String uploadPath;
 
     public com.krystalblog.module.drive.vo.DriveStatsVO getStats(long quotaBytes) {
-        Long folderCount = folderMapper.selectCount(null);
-        List<DriveFile> activeFiles = fileMapper.selectList(
-                new LambdaQueryWrapper<DriveFile>().eq(DriveFile::getStatus, "ACTIVE")
-        );
+        Long currentUserId = securityUtil.getCurrentUserId();
+        boolean admin = securityUtil.isAdmin();
+        LambdaQueryWrapper<DriveFile> fileWrapper = new LambdaQueryWrapper<DriveFile>().eq(DriveFile::getStatus, "ACTIVE");
+        if (!admin) {
+            fileWrapper.eq(DriveFile::getUploaderId, currentUserId);
+        }
+        List<DriveFile> activeFiles = fileMapper.selectList(fileWrapper);
+
+        Long folderCount;
+        if (admin) {
+            folderCount = folderMapper.selectCount(null);
+        } else {
+            folderCount = folderMapper.selectCount(new LambdaQueryWrapper<DriveFolder>().eq(DriveFolder::getUserId, currentUserId));
+        }
 
         long totalSizeBytes = 0L;
         Map<String, Long> typeCounts = new HashMap<>();
@@ -79,6 +90,8 @@ public class DriveFileService {
     }
 
     public IPage<DriveFileVO> listFiles(int page, int size, Long folderId, String keyword) {
+        Long currentUserId = securityUtil.getCurrentUserId();
+        boolean admin = securityUtil.isAdmin();
         LambdaQueryWrapper<DriveFile> wrapper = new LambdaQueryWrapper<>();
         if (folderId != null) {
             wrapper.eq(DriveFile::getFolderId, folderId);
@@ -88,10 +101,87 @@ public class DriveFileService {
         if (StringUtils.hasText(keyword)) {
             wrapper.like(DriveFile::getFileName, keyword);
         }
+        if (!admin) {
+            wrapper.eq(DriveFile::getUploaderId, currentUserId);
+        }
         wrapper.eq(DriveFile::getStatus, "ACTIVE").orderByDesc(DriveFile::getCreatedAt);
 
         IPage<DriveFile> filePage = fileMapper.selectPage(new Page<>(page, size), wrapper);
         return filePage.convert(this::toVO);
+    }
+
+    public IPage<DriveFileVO> listFilesForPicker(
+            int page,
+            int size,
+            Long folderId,
+            String keyword,
+            String fileCategory,
+            String mimePrefix,
+            Long uploadedAfterMillis,
+            Long uploadedBeforeMillis,
+            String sortBy
+    ) {
+        Long currentUserId = securityUtil.getCurrentUserId();
+        boolean admin = securityUtil.isAdmin();
+        LambdaQueryWrapper<DriveFile> wrapper = new LambdaQueryWrapper<>();
+
+        if (folderId != null) {
+            wrapper.eq(DriveFile::getFolderId, folderId);
+        } else {
+            wrapper.isNull(DriveFile::getFolderId);
+        }
+        if (StringUtils.hasText(keyword)) {
+            wrapper.like(DriveFile::getFileName, keyword);
+        }
+        if (StringUtils.hasText(mimePrefix)) {
+            wrapper.likeRight(DriveFile::getFileType, mimePrefix);
+        } else if (StringUtils.hasText(fileCategory)) {
+            String c = fileCategory.trim().toLowerCase(Locale.ROOT);
+            if ("audio".equals(c)) {
+                wrapper.and(w -> w.likeRight(DriveFile::getFileType, "audio/")
+                        .or().like(DriveFile::getFileName, ".mp3")
+                        .or().like(DriveFile::getFileName, ".wav")
+                        .or().like(DriveFile::getFileName, ".flac")
+                        .or().like(DriveFile::getFileName, ".m4a")
+                        .or().like(DriveFile::getFileName, ".aac")
+                        .or().like(DriveFile::getFileName, ".ogg"));
+            } else if ("video".equals(c)) {
+                wrapper.and(w -> w.likeRight(DriveFile::getFileType, "video/")
+                        .or().like(DriveFile::getFileName, ".mp4")
+                        .or().like(DriveFile::getFileName, ".mov")
+                        .or().like(DriveFile::getFileName, ".avi")
+                        .or().like(DriveFile::getFileName, ".mkv")
+                        .or().like(DriveFile::getFileName, ".webm"));
+            }
+        }
+        if (uploadedAfterMillis != null && uploadedAfterMillis > 0) {
+            LocalDateTime after = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(uploadedAfterMillis), ZoneId.systemDefault());
+            wrapper.ge(DriveFile::getCreatedAt, after);
+        }
+        if (uploadedBeforeMillis != null && uploadedBeforeMillis > 0) {
+            LocalDateTime before = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(uploadedBeforeMillis), ZoneId.systemDefault());
+            wrapper.le(DriveFile::getCreatedAt, before);
+        }
+        if (!admin) {
+            wrapper.eq(DriveFile::getUploaderId, currentUserId);
+        }
+        wrapper.eq(DriveFile::getStatus, "ACTIVE");
+
+        String s = sortBy != null ? sortBy.trim() : "";
+        if ("createdAtAsc".equalsIgnoreCase(s)) {
+            wrapper.orderByAsc(DriveFile::getCreatedAt);
+        } else if ("fileSizeDesc".equalsIgnoreCase(s)) {
+            wrapper.orderByDesc(DriveFile::getFileSize);
+        } else if ("fileSizeAsc".equalsIgnoreCase(s)) {
+            wrapper.orderByAsc(DriveFile::getFileSize);
+        } else if ("lastAccessedAtDesc".equalsIgnoreCase(s)) {
+            wrapper.orderByDesc(DriveFile::getLastAccessedAt);
+        } else {
+            wrapper.orderByDesc(DriveFile::getCreatedAt);
+        }
+
+        IPage<DriveFile> filePage = fileMapper.selectPage(new Page<>(page, size), wrapper);
+        return filePage.convert(f -> toVO(f, true));
     }
 
     public DriveFile getEntityById(Long id) {
@@ -99,21 +189,20 @@ public class DriveFileService {
         if (file == null) {
             throw new BusinessException(ResultCode.FILE_NOT_FOUND);
         }
+        assertCanAccess(file);
         return file;
     }
 
     public void incrementDownloadCount(Long id) {
         if (id == null) return;
+        getEntityById(id);
         fileMapper.incrementDownloadCount(id);
         touchAccess(id);
     }
 
     public DriveFileVO getFileById(Long id) {
-        DriveFile file = fileMapper.selectById(id);
-        if (file == null) {
-            throw new BusinessException(ResultCode.FILE_NOT_FOUND);
-        }
-        fileMapper.incrementDownloadCount(id);
+        DriveFile file = getEntityById(id);
+        fileMapper.incrementDownloadCount(file.getId());
         touchAccess(id);
         return toVO(file, true);
     }
@@ -208,6 +297,7 @@ public class DriveFileService {
         file.setUploaderId(securityUtil.getCurrentUserId());
         file.setStatus(dto.getStatus() != null ? dto.getStatus() : "ACTIVE");
         file.setDownloadCount(0L);
+        file.setReferenceCount(0L);
         fileMapper.insert(file);
         return toVO(fileMapper.selectById(file.getId()));
     }
@@ -272,16 +362,14 @@ public class DriveFileService {
         file.setUploaderId(uploaderId);
         file.setStatus("ACTIVE");
         file.setDownloadCount(0L);
+        file.setReferenceCount(0L);
         fileMapper.insert(file);
         return toVO(fileMapper.selectById(file.getId()), true);
     }
 
     @Transactional
     public void deleteFile(Long id) {
-        DriveFile file = fileMapper.selectById(id);
-        if (file == null) {
-            throw new BusinessException(ResultCode.FILE_NOT_FOUND);
-        }
+        DriveFile file = getEntityById(id);
         if ("OSS".equalsIgnoreCase(file.getStorageProvider()) && StringUtils.hasText(file.getObjectKey())) {
             OssStorageService ossStorageService = ossStorageServiceProvider.getIfAvailable();
             if (ossStorageService != null) {
@@ -297,6 +385,9 @@ public class DriveFileService {
         for (Long id : ids) {
             if (id == null) continue;
             DriveFile file = fileMapper.selectById(id);
+            if (file != null) {
+                assertCanAccess(file);
+            }
             if (file != null && "OSS".equalsIgnoreCase(file.getStorageProvider()) && StringUtils.hasText(file.getObjectKey())) {
                 OssStorageService ossStorageService = ossStorageServiceProvider.getIfAvailable();
                 if (ossStorageService != null) {
@@ -462,6 +553,7 @@ public class DriveFileService {
                 .uploaderName(uploader != null ? uploader.getNickname() : null)
                 .status(f.getStatus())
                 .downloadCount(f.getDownloadCount())
+                .referenceCount(f.getReferenceCount())
                 .createdAt(f.getCreatedAt())
                 .updatedAt(f.getUpdatedAt())
                 ;
@@ -472,5 +564,38 @@ public class DriveFileService {
         }
 
         return builder.build();
+    }
+
+    public String resolvePublicMediaUrl(DriveFile file) {
+        if (file == null) return null;
+        if ("LOCAL".equalsIgnoreCase(file.getStorageProvider()) || !StringUtils.hasText(file.getStorageProvider())) {
+            return file.getFileUrl();
+        }
+        if (!"OSS".equalsIgnoreCase(file.getStorageProvider())) {
+            return file.getFileUrl();
+        }
+        if (!StringUtils.hasText(file.getObjectKey())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "网盘文件缺少objectKey");
+        }
+        OssStorageService ossStorageService = ossStorageServiceProvider.getIfAvailable();
+        if (ossStorageService == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS未启用");
+        }
+        String cdnDomain = ossStorageService.getCdnDomain();
+        if (!StringUtils.hasText(cdnDomain)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS未配置cdnDomain，无法生成长期可访问URL");
+        }
+        String base = cdnDomain.endsWith("/") ? cdnDomain.substring(0, cdnDomain.length() - 1) : cdnDomain;
+        String key = file.getObjectKey().startsWith("/") ? file.getObjectKey().substring(1) : file.getObjectKey();
+        return base + "/" + key;
+    }
+
+    private void assertCanAccess(DriveFile file) {
+        if (file == null) return;
+        if (securityUtil.isAdmin()) return;
+        Long currentUserId = securityUtil.getCurrentUserId();
+        if (currentUserId == null || file.getUploaderId() == null || !currentUserId.equals(file.getUploaderId())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权访问该网盘文件");
+        }
     }
 }

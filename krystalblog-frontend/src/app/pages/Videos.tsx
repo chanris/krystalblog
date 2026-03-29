@@ -8,8 +8,10 @@ import { useApp } from "../context/AppContext";
 import { type CommentVO, type VideoCategoryVO, type VideoVO, videoApi } from "../services/api";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from "@/app/components/ui/dialog";
+} from "../components/ui/dialog";
 import { toast } from "sonner";
+import DriveFilePickerDialog from "../components/DriveFilePickerDialog";
+import type { DriveFileVO } from "../services/api";
 
 const DEFAULT_COVER = "https://via.placeholder.com/640x360?text=Video";
 
@@ -36,9 +38,14 @@ export default function Videos() {
   const emptyUploadForm = {
     title: "",
     videoUrl: "",
+    driveFileId: "",
+    driveFileName: "",
     coverImage: "",
     description: "",
     categoryId: "",
+    width: "",
+    height: "",
+    videoBitrateKbps: "",
   };
   const emptyCategoryForm = {
     name: "",
@@ -47,6 +54,7 @@ export default function Videos() {
   };
   const [uploadForm, setUploadForm] = useState(emptyUploadForm);
   const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
+  const [showDrivePicker, setShowDrivePicker] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -302,12 +310,13 @@ export default function Videos() {
   const handleUploadSubmit = async () => {
     const title = uploadForm.title.trim();
     const videoUrl = uploadForm.videoUrl.trim();
+    const driveFileIdNum = uploadForm.driveFileId ? Number(uploadForm.driveFileId) : undefined;
     if (!title) {
       toast.error("请输入视频标题");
       return;
     }
-    if (!videoUrl) {
-      toast.error("请输入视频地址");
+    if (!driveFileIdNum && !videoUrl) {
+      toast.error("请输入视频地址或从网盘选择");
       return;
     }
     if (!uploadForm.categoryId) {
@@ -317,13 +326,25 @@ export default function Videos() {
 
     setUploadingVideo(true);
     try {
-      await videoApi.create({
+      const payload: any = {
         title,
-        videoUrl,
         categoryId: Number(uploadForm.categoryId),
         coverImage: uploadForm.coverImage.trim() || undefined,
         description: uploadForm.description.trim() || undefined,
-      });
+      };
+      if (driveFileIdNum) {
+        payload.driveFileId = driveFileIdNum;
+      } else {
+        payload.videoUrl = videoUrl;
+      }
+      const widthNum = uploadForm.width ? Number(uploadForm.width) : undefined;
+      const heightNum = uploadForm.height ? Number(uploadForm.height) : undefined;
+      const bitrateNum = uploadForm.videoBitrateKbps ? Number(uploadForm.videoBitrateKbps) : undefined;
+      if (widthNum && widthNum > 0) payload.width = widthNum;
+      if (heightNum && heightNum > 0) payload.height = heightNum;
+      if (bitrateNum && bitrateNum > 0) payload.videoBitrateKbps = bitrateNum;
+
+      await videoApi.create(payload);
       toast.success("视频上传成功");
       setShowUploadDialog(false);
       setUploadForm(emptyUploadForm);
@@ -333,6 +354,17 @@ export default function Videos() {
     } finally {
       setUploadingVideo(false);
     }
+  };
+
+  const applyDriveSelection = (files: DriveFileVO[]) => {
+    const file = files[0];
+    if (!file) return;
+    setUploadForm((prev) => ({
+      ...prev,
+      driveFileId: String(file.id),
+      driveFileName: file.fileName,
+      videoUrl: "",
+    }));
   };
 
   return (
@@ -759,7 +791,7 @@ export default function Videos() {
 
       <Dialog
         open={showUploadDialog}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           setShowUploadDialog(open);
           if (!open && !uploadingVideo) {
             setUploadForm(emptyUploadForm);
@@ -783,14 +815,40 @@ export default function Videos() {
               />
             </div>
             <div>
-              <label className="block text-sm mb-2" style={{ color: "#44403c" }}>视频地址</label>
-              <input
-                value={uploadForm.videoUrl}
-                onChange={(e) => setUploadForm((prev) => ({ ...prev, videoUrl: e.target.value }))}
-                placeholder="请输入视频 URL"
-                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                style={{ border: "1.5px solid #e7dcc7" }}
-              />
+              <label className="block text-sm mb-2" style={{ color: "#44403c" }}>视频来源</label>
+              <div className="flex gap-2">
+                <input
+                  value={uploadForm.videoUrl}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, videoUrl: e.target.value }))}
+                  placeholder={uploadForm.driveFileId ? "已选择网盘文件" : "请输入视频 URL"}
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none disabled:opacity-70"
+                  style={{ border: "1.5px solid #e7dcc7" }}
+                  disabled={!!uploadForm.driveFileId}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDrivePicker(true)}
+                  className="px-3 py-2.5 rounded-lg text-sm whitespace-nowrap"
+                  style={{ background: "white", border: "1.5px solid #e7dcc7", color: "#7c3aed", fontWeight: 500 }}
+                >
+                  从网盘选择
+                </button>
+              </div>
+              {uploadForm.driveFileId && (
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="text-xs truncate" style={{ color: "#78716c" }} title={uploadForm.driveFileName}>
+                    已选择：{uploadForm.driveFileName}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setUploadForm((prev) => ({ ...prev, driveFileId: "", driveFileName: "" }))}
+                    className="text-xs px-2 py-1 rounded-lg"
+                    style={{ border: "1px solid #e7dcc7", color: "#57534e", background: "white" }}
+                  >
+                    清除
+                  </button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -818,6 +876,44 @@ export default function Videos() {
                     </option>
                   ))}
                 </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm mb-2" style={{ color: "#44403c" }}>宽（px）</label>
+                <input
+                  type="number"
+                  value={uploadForm.width}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, width: e.target.value }))}
+                  placeholder="可选"
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                  style={{ border: "1.5px solid #e7dcc7" }}
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2" style={{ color: "#44403c" }}>高（px）</label>
+                <input
+                  type="number"
+                  value={uploadForm.height}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, height: e.target.value }))}
+                  placeholder="可选"
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                  style={{ border: "1.5px solid #e7dcc7" }}
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2" style={{ color: "#44403c" }}>码率（kbps）</label>
+                <input
+                  type="number"
+                  value={uploadForm.videoBitrateKbps}
+                  onChange={(e) => setUploadForm((prev) => ({ ...prev, videoBitrateKbps: e.target.value }))}
+                  placeholder="可选"
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
+                  style={{ border: "1.5px solid #e7dcc7" }}
+                  min="0"
+                />
               </div>
             </div>
             <div>
@@ -853,6 +949,14 @@ export default function Videos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DriveFilePickerDialog
+        open={showDrivePicker}
+        onOpenChange={setShowDrivePicker}
+        fileCategory="video"
+        multiSelect={false}
+        onConfirm={applyDriveSelection}
+      />
     </div>
   );
 }

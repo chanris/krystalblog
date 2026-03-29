@@ -3,19 +3,21 @@ package com.krystalblog.module.music.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.krystalblog.common.exception.BusinessException;
+import com.krystalblog.common.result.ResultCode;
 import com.krystalblog.entity.*;
 import com.krystalblog.mapper.*;
+import com.krystalblog.module.drive.service.DriveFileService;
 import com.krystalblog.module.music.dto.MusicDTO;
 import com.krystalblog.module.music.vo.ArtistVO;
 import com.krystalblog.module.music.vo.MusicVO;
-import com.krystalblog.common.exception.BusinessException;
-import com.krystalblog.common.result.ResultCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +30,8 @@ public class MusicService {
     private final SongTagMapper songTagMapper;
     private final PlaylistMapper playlistMapper;
     private final PlaylistMusicMapper playlistMusicMapper;
+    private final DriveFileService driveFileService;
+    private final DriveFileMapper driveFileMapper;
 
     /**
      * 分页查询音乐列表，支持多种筛选条件
@@ -153,7 +157,7 @@ public class MusicService {
         music.setSlug(dto.getSlug() != null ? dto.getSlug() : dto.getTitle());
         music.setDescription(dto.getDescription());
         music.setCover(dto.getCover());
-        music.setAudioUrl(dto.getAudioUrl());
+        applyAudioSource(music, dto);
         music.setDuration(dto.getDuration());
         music.setLyrics(dto.getLyrics());
         music.setLyricsUrl(dto.getLyricsUrl());
@@ -163,6 +167,10 @@ public class MusicService {
         music.setPlays(0L);
         music.setStatus(dto.getStatus() != null ? dto.getStatus() : "PUBLISHED");
         musicMapper.insert(music);
+
+        if (music.getDriveFileId() != null) {
+            driveFileMapper.incrementReferenceCount(music.getDriveFileId());
+        }
 
         // 保存标签
         if (dto.getTags() != null) {
@@ -181,7 +189,16 @@ public class MusicService {
         if (dto.getSlug() != null) music.setSlug(dto.getSlug());
         if (dto.getDescription() != null) music.setDescription(dto.getDescription());
         if (dto.getCover() != null) music.setCover(dto.getCover());
-        if (dto.getAudioUrl() != null) music.setAudioUrl(dto.getAudioUrl());
+        if (dto.getDriveFileId() != null || dto.getAudioUrl() != null) {
+            Long previousDriveFileId = music.getDriveFileId();
+            applyAudioSource(music, dto);
+            if (previousDriveFileId != null && !previousDriveFileId.equals(music.getDriveFileId())) {
+                driveFileMapper.decrementReferenceCount(previousDriveFileId);
+            }
+            if (music.getDriveFileId() != null && !music.getDriveFileId().equals(previousDriveFileId)) {
+                driveFileMapper.incrementReferenceCount(music.getDriveFileId());
+            }
+        }
         if (dto.getDuration() != null) music.setDuration(dto.getDuration());
         if (dto.getLyrics() != null) music.setLyrics(dto.getLyrics());
         if (dto.getLyricsUrl() != null) music.setLyricsUrl(dto.getLyricsUrl());
@@ -204,6 +221,10 @@ public class MusicService {
 
     @Transactional
     public void deleteMusic(Long id) {
+        Music music = musicMapper.selectById(id);
+        if (music != null && music.getDriveFileId() != null) {
+            driveFileMapper.decrementReferenceCount(music.getDriveFileId());
+        }
         songTagMapper.delete(
                 new LambdaQueryWrapper<SongTag>().eq(SongTag::getSongId, id));
         musicMapper.deleteById(id);
@@ -310,6 +331,10 @@ public class MusicService {
                 .description(m.getDescription())
                 .cover(m.getCover())
                 .audioUrl(m.getAudioUrl())
+                .driveFileId(m.getDriveFileId())
+                .audioMimeType(m.getAudioMimeType())
+                .audioSizeBytes(m.getAudioSizeBytes())
+                .audioBitrateKbps(m.getAudioBitrateKbps())
                 .duration(m.getDuration())
                 .lyrics(m.getLyrics())
                 .lyricsUrl(m.getLyricsUrl())
@@ -325,5 +350,56 @@ public class MusicService {
                 .createdAt(m.getCreatedAt())
                 .updatedAt(m.getUpdatedAt())
                 .build();
+    }
+
+    private void applyAudioSource(Music music, MusicDTO dto) {
+        if (dto == null) return;
+        if (dto.getDriveFileId() != null) {
+            DriveFile file = driveFileService.getEntityById(dto.getDriveFileId());
+            if (!"ACTIVE".equalsIgnoreCase(file.getStatus())) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "网盘文件不可用");
+            }
+            if (!isAudioFile(file)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST, "请选择音频类型文件");
+            }
+            music.setDriveFileId(file.getId());
+            music.setAudioUrl(driveFileService.resolvePublicMediaUrl(file));
+            music.setAudioMimeType(file.getFileType());
+            music.setAudioSizeBytes(file.getFileSize());
+            if (dto.getAudioBitrateKbps() != null) {
+                music.setAudioBitrateKbps(dto.getAudioBitrateKbps());
+            }
+            return;
+        }
+
+        if (dto.getAudioUrl() != null) {
+            String audioUrl = dto.getAudioUrl().trim();
+            if (!audioUrl.isEmpty()) {
+                music.setAudioUrl(audioUrl);
+            }
+            music.setDriveFileId(null);
+            music.setAudioMimeType(null);
+            music.setAudioSizeBytes(null);
+            if (dto.getAudioBitrateKbps() != null) {
+                music.setAudioBitrateKbps(dto.getAudioBitrateKbps());
+            }
+        }
+
+        if (!StringUtils.hasText(music.getAudioUrl())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "音频URL或网盘文件ID不能为空");
+        }
+    }
+
+    private boolean isAudioFile(DriveFile file) {
+        if (file == null) return false;
+        String mime = file.getFileType();
+        if (StringUtils.hasText(mime) && mime.toLowerCase(Locale.ROOT).startsWith("audio/")) return true;
+        String name = file.getFileName() != null ? file.getFileName().toLowerCase(Locale.ROOT) : "";
+        return name.endsWith(".mp3")
+                || name.endsWith(".wav")
+                || name.endsWith(".flac")
+                || name.endsWith(".m4a")
+                || name.endsWith(".aac")
+                || name.endsWith(".ogg");
     }
 }

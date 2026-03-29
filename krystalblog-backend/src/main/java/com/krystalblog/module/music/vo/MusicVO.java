@@ -15,6 +15,10 @@ public class MusicVO {
     private String description;
     private String cover;
     private String audioUrl;
+    private Long driveFileId;
+    private String audioMimeType;
+    private Long audioSizeBytes;
+    private Integer audioBitrateKbps;
     private Integer duration;
     private String lyrics;
     private String lyricsUrl;

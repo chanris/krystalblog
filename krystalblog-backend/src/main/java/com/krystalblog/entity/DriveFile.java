@@ -29,4 +29,5 @@ public class DriveFile extends BaseEntity {
     private Long uploaderId;
     private String status;
     private Long downloadCount;
+    private Long referenceCount;
 }
