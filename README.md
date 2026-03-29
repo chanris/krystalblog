@@ -124,6 +124,10 @@ KrystalBlog/
 | 网盘 | `/api/drive` | 文件夹/文件管理 |
 | 统计 | `/api/stats` | 站点统计数据 |
 
+## 开发工具
+
+Claude Code + Trae IDE
+
 ## 开发命令
 
 ```bash

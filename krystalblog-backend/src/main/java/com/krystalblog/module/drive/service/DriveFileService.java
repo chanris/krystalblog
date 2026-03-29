@@ -82,6 +82,8 @@ public class DriveFileService {
         LambdaQueryWrapper<DriveFile> wrapper = new LambdaQueryWrapper<>();
         if (folderId != null) {
             wrapper.eq(DriveFile::getFolderId, folderId);
+        } else {
+            wrapper.isNull(DriveFile::getFolderId);
         }
         if (StringUtils.hasText(keyword)) {
             wrapper.like(DriveFile::getFileName, keyword);
