@@ -50,13 +50,13 @@ springdoc:
 
 app:
   upload:
-    path: ./uploads
+    path: ./uploads             # oss未启用时存储本地路径
   oss:
-    enabled: false
-    endpoint:
-    bucket:
-    access-key-id:
-    access-key-secret:
+    enabled: ${OSS_ENABLE:false}
+    endpoint: ${OSS_ENDPOINT}
+    bucket: ${OSS_BUCKET}
+    access-key-id: ${OSS_ACCESS_KEY_ID}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET}
     cdn-domain:
     encryption:
       enabled: true

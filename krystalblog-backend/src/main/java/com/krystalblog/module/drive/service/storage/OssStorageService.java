@@ -1,7 +1,9 @@
 package com.krystalblog.module.drive.service.storage;
 
+import com.aliyun.oss.ClientException;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.HttpMethod;
+import com.aliyun.oss.OSSException;
 import com.aliyun.oss.model.CompleteMultipartUploadRequest;
 import com.aliyun.oss.model.CompleteMultipartUploadResult;
 import com.aliyun.oss.model.GeneratePresignedUrlRequest;
@@ -16,6 +18,7 @@ import com.krystalblog.common.exception.BusinessException;
 import com.krystalblog.common.result.ResultCode;
 import com.krystalblog.config.OssProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -26,6 +29,7 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @ConditionalOnBean(OSS.class)
@@ -46,7 +50,14 @@ public class OssStorageService {
             applyEncryption(metadata);
             var result = oss.putObject(properties.getBucket(), objectKey, inputStream, metadata);
             return result != null ? result.getETag() : null;
+        } catch (OSSException e) {
+            logOssException("putObject", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS上传失败（权限/策略/配置）");
+        } catch (ClientException e) {
+            logOssException("putObject", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS上传失败（网络/签名/配置）");
         } catch (Exception e) {
+            log.error("OSS上传文件失败：action=putObject, bucket={}, objectKey={}, message={}", properties.getBucket(), objectKey, e.getMessage(), e);
             throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS上传失败");
         }
     }
@@ -61,7 +72,14 @@ public class OssStorageService {
             applyEncryption(metadata);
             request.setObjectMetadata(metadata);
             return oss.initiateMultipartUpload(request);
+        } catch (OSSException e) {
+            logOssException("initiateMultipartUpload", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片初始化失败（权限/策略/配置）");
+        } catch (ClientException e) {
+            logOssException("initiateMultipartUpload", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片初始化失败（网络/签名/配置）");
         } catch (Exception e) {
+            log.error("OSS分片初始化失败：action=initiateMultipartUpload, bucket={}, objectKey={}, message={}", properties.getBucket(), objectKey, e.getMessage(), e);
             throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片初始化失败");
         }
     }
@@ -77,7 +95,14 @@ public class OssStorageService {
             request.setPartNumber(partNumber);
             UploadPartResult result = oss.uploadPart(request);
             return result.getPartETag();
+        } catch (OSSException e) {
+            logOssException("uploadPart", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片上传失败（权限/策略/配置）");
+        } catch (ClientException e) {
+            logOssException("uploadPart", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片上传失败（网络/签名/配置）");
         } catch (Exception e) {
+            log.error("OSS分片上传失败：action=uploadPart, bucket={}, objectKey={}, uploadId={}, partNumber={}, message={}", properties.getBucket(), objectKey, uploadId, partNumber, e.getMessage(), e);
             throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片上传失败");
         }
     }
@@ -91,7 +116,14 @@ public class OssStorageService {
                     partETags
             );
             return oss.completeMultipartUpload(request);
+        } catch (OSSException e) {
+            logOssException("completeMultipartUpload", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片合并失败（权限/策略/配置）");
+        } catch (ClientException e) {
+            logOssException("completeMultipartUpload", objectKey, e);
+            throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片合并失败（网络/签名/配置）");
         } catch (Exception e) {
+            log.error("OSS分片合并失败：action=completeMultipartUpload, bucket={}, objectKey={}, uploadId={}, message={}", properties.getBucket(), objectKey, uploadId, e.getMessage(), e);
             throw new BusinessException(ResultCode.FILE_UPLOAD_FAILED, "OSS分片合并失败");
         }
     }
@@ -99,7 +131,14 @@ public class OssStorageService {
     public void deleteObject(String objectKey) {
         try {
             oss.deleteObject(properties.getBucket(), objectKey);
+        } catch (OSSException e) {
+            logOssException("deleteObject", objectKey, e);
+            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS删除失败（权限/策略/配置）");
+        } catch (ClientException e) {
+            logOssException("deleteObject", objectKey, e);
+            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS删除失败（网络/签名/配置）");
         } catch (Exception e) {
+            log.error("OSS删除失败：action=deleteObject, bucket={}, objectKey={}, message={}", properties.getBucket(), objectKey, e.getMessage(), e);
             throw new BusinessException(ResultCode.BAD_REQUEST, "OSS删除失败");
         }
     }
@@ -107,7 +146,14 @@ public class OssStorageService {
     public void copyObject(String sourceKey, String destinationKey) {
         try {
             oss.copyObject(properties.getBucket(), sourceKey, properties.getBucket(), destinationKey);
+        } catch (OSSException e) {
+            logOssException("copyObject", sourceKey + " -> " + destinationKey, e);
+            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS移动失败（权限/策略/配置）");
+        } catch (ClientException e) {
+            logOssException("copyObject", sourceKey + " -> " + destinationKey, e);
+            throw new BusinessException(ResultCode.BAD_REQUEST, "OSS移动失败（网络/签名/配置）");
         } catch (Exception e) {
+            log.error("OSS移动失败：action=copyObject, bucket={}, sourceKey={}, destinationKey={}, message={}", properties.getBucket(), sourceKey, destinationKey, e.getMessage(), e);
             throw new BusinessException(ResultCode.BAD_REQUEST, "OSS移动失败");
         }
     }
@@ -161,5 +207,32 @@ public class OssStorageService {
             return;
         }
         metadata.setHeader("x-oss-server-side-encryption", "AES256");
+    }
+
+    private void logOssException(String action, String objectKey, OSSException e) {
+        log.error(
+                "OSS请求失败：action={}, bucket={}, objectKey={}, errorCode={}, requestId={}, hostId={}, message={}",
+                action,
+                properties.getBucket(),
+                objectKey,
+                e.getErrorCode(),
+                e.getRequestId(),
+                e.getHostId(),
+                e.getMessage(),
+                e
+        );
+    }
+
+    private void logOssException(String action, String objectKey, ClientException e) {
+        log.error(
+                "OSS客户端异常：action={}, bucket={}, objectKey={}, errorCode={}, requestId={}, message={}",
+                action,
+                properties.getBucket(),
+                objectKey,
+                e.getErrorCode(),
+                e.getRequestId(),
+                e.getMessage(),
+                e
+        );
     }
 }
