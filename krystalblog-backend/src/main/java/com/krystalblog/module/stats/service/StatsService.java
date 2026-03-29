@@ -196,7 +196,6 @@ public class StatsService {
     }
 
     public List<WeeklyVisitVO> getWeeklyVisits() {
-        String[] days = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
         List<WeeklyVisitVO> result = new ArrayList<>();
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -204,15 +203,35 @@ public class StatsService {
         for (int i = 6; i >= 0; i--) {
             LocalDate date = today.minusDays(i);
             String key = "stats:visits:daily:" + date.format(formatter);
-            String value = redisTemplate.opsForValue().get(key);
-            long visits = value != null ? Long.parseLong(value) : 0;
+
+            long visits = 0;
+            try {
+                String value = redisTemplate.opsForValue().get(key);
+                if (value != null && !value.isBlank()) {
+                    visits = Long.parseLong(value.trim());
+                }
+            } catch (Exception ignored) {
+                visits = 0;
+            }
 
             result.add(WeeklyVisitVO.builder()
-                    .day(days[6 - i])
+                    .day(toChineseWeekday(date))
                     .visits(visits)
                     .build());
         }
         return result;
+    }
+
+    private String toChineseWeekday(LocalDate date) {
+        return switch (date.getDayOfWeek()) {
+            case MONDAY -> "周一";
+            case TUESDAY -> "周二";
+            case WEDNESDAY -> "周三";
+            case THURSDAY -> "周四";
+            case FRIDAY -> "周五";
+            case SATURDAY -> "周六";
+            case SUNDAY -> "周日";
+        };
     }
 
     public SiteInfoVO getSiteInfo() {

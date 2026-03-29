@@ -78,7 +78,8 @@ public class MusicService {
         Music music = musicMapper.selectById(id);
         if (music == null) return null;
         musicMapper.incrementPlayCount(id);
-        return toVO(music);
+        Music updated = musicMapper.selectById(id);
+        return toVO(updated != null ? updated : music);
     }
 
     /**

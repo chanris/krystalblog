@@ -23,9 +23,9 @@ public class VisitStatsAspect {
 
     private final StringRedisTemplate redisTemplate;
 
-    @Pointcut("execution(* com.krystalblog.module.article.controller.ArticleController.getArticleDetail(..)) || " +
-              "execution(* com.krystalblog.module.video.controller.VideoController.getVideoDetail(..)) || " +
-              "execution(* com.krystalblog.module.music.controller.MusicController.getMusicDetail(..))")
+    @Pointcut("execution(* com.krystalblog.module.article.controller.ArticleController.getArticle(..)) || " +
+              "execution(* com.krystalblog.module.video.controller.VideoController.getVideo(..)) || " +
+              "execution(* com.krystalblog.module.music.controller.MusicController.getMusic(..))")
     public void contentVisit() {}
 
     @AfterReturning("contentVisit()")

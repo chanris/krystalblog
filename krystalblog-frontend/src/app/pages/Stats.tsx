@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { useApp } from "../context/AppContext";
 import { statsApi, StatsOverviewVO, MonthlyTrendVO, VideoTrendVO, MusicTrendVO, CategoryDistributionVO, WeeklyVisitVO, SiteInfoVO } from "../services/api";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const COLORS = ["#d97706", "#f59e0b", "#0891b2", "#7c3aed", "#059669"];
 
@@ -69,6 +69,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Stats() {
   const { isAdmin } = useApp();
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [overview, setOverview] = useState<StatsOverviewVO | null>(null);
   const [articleTrend, setArticleTrend] = useState<MonthlyTrendVO[]>([]);
   const [videoTrend, setVideoTrend] = useState<VideoTrendVO[]>([]);
@@ -77,38 +78,63 @@ export default function Stats() {
   const [weeklyVisits, setWeeklyVisits] = useState<WeeklyVisitVO[]>([]);
   const [siteInfo, setSiteInfo] = useState<SiteInfoVO | null>(null);
 
-  useEffect(() => {
+  const fetchData = useCallback(async () => {
     if (!isAdmin) return;
+    try {
+      setLoading(true);
+      setErrors({});
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [overviewRes, articleRes, videoRes, musicRes, categoryRes, weeklyRes, infoRes] = await Promise.all([
-          statsApi.overview(),
-          statsApi.articleTrend(6),
-          statsApi.videoTrend(6),
-          statsApi.musicTrend(6),
-          statsApi.musicCategories(),
-          statsApi.weeklyVisits(),
-          statsApi.siteInfo(),
-        ]);
+      const results = await Promise.allSettled([
+        statsApi.overview(),
+        statsApi.articleTrend(6),
+        statsApi.videoTrend(6),
+        statsApi.musicTrend(6),
+        statsApi.musicCategories(),
+        statsApi.weeklyVisits(),
+        statsApi.siteInfo(),
+      ]);
 
-        setOverview(overviewRes.data);
-        setArticleTrend(articleRes.data);
-        setVideoTrend(videoRes.data);
-        setMusicTrend(musicRes.data);
-        setCategoryDist(categoryRes.data);
-        setWeeklyVisits(weeklyRes.data);
-        setSiteInfo(infoRes.data);
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const [
+        overviewRes,
+        articleRes,
+        videoRes,
+        musicRes,
+        categoryRes,
+        weeklyRes,
+        infoRes,
+      ] = results;
 
-    fetchData();
+      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value.data);
+      else setErrors((prev) => ({ ...prev, overview: overviewRes.reason?.message || "统计概览获取失败" }));
+
+      if (articleRes.status === "fulfilled") setArticleTrend(articleRes.value.data);
+      else setErrors((prev) => ({ ...prev, articleTrend: articleRes.reason?.message || "文章趋势获取失败" }));
+
+      if (videoRes.status === "fulfilled") setVideoTrend(videoRes.value.data);
+      else setErrors((prev) => ({ ...prev, videoTrend: videoRes.reason?.message || "视频趋势获取失败" }));
+
+      if (musicRes.status === "fulfilled") setMusicTrend(musicRes.value.data);
+      else setErrors((prev) => ({ ...prev, musicTrend: musicRes.reason?.message || "音乐播放数据获取失败" }));
+
+      if (categoryRes.status === "fulfilled") setCategoryDist(categoryRes.value.data);
+      else setErrors((prev) => ({ ...prev, musicCategories: categoryRes.reason?.message || "音乐分类获取失败" }));
+
+      if (weeklyRes.status === "fulfilled") setWeeklyVisits(weeklyRes.value.data);
+      else setErrors((prev) => ({ ...prev, weeklyVisits: weeklyRes.reason?.message || "本周访问量获取失败" }));
+
+      if (infoRes.status === "fulfilled") setSiteInfo(infoRes.value.data);
+      else setErrors((prev) => ({ ...prev, siteInfo: infoRes.reason?.message || "网站信息获取失败" }));
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+      setErrors((prev) => ({ ...prev, page: (error as any)?.message || "统计数据获取失败" }));
+    } finally {
+      setLoading(false);
+    }
   }, [isAdmin]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   if (!isAdmin) {
     return (
@@ -225,21 +251,38 @@ export default function Stats() {
             <h3 style={{ color: "#1c1917" }}>音乐播放数据</h3>
           </div>
           <p className="text-xs mb-4" style={{ color: "#a8956b" }}>月度播放量趋势</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={musicTrend}>
-              <defs>
-                <linearGradient id="musicGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0891b2" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#0891b2" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f5ede0" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="plays" name="播放" stroke="#0891b2" fill="url(#musicGrad)" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 3 }} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {errors.musicTrend ? (
+            <div className="h-[200px] flex flex-col items-center justify-center text-center gap-3">
+              <p className="text-sm" style={{ color: "#dc2626", fontWeight: 600 }}>{errors.musicTrend}</p>
+              <button
+                onClick={fetchData}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: "#fef3c7", color: "#d97706", fontWeight: 600 }}
+              >
+                重试
+              </button>
+            </div>
+          ) : musicTrend.length === 0 ? (
+            <div className="h-[200px] flex items-center justify-center">
+              <p className="text-sm" style={{ color: "#a8956b" }}>暂无数据</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={musicTrend}>
+                <defs>
+                  <linearGradient id="musicGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0891b2" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#0891b2" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f5ede0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="plays" name="播放" stroke="#0891b2" fill="url(#musicGrad)" strokeWidth={2.5} dot={{ fill: "#0891b2", r: 3 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </motion.div>
 
         {/* Music Category Distribution */}
@@ -293,20 +336,39 @@ export default function Stats() {
           </span>
         </div>
         <p className="text-xs mb-4" style={{ color: "#a8956b" }}>本周每日独立访客数量</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={weeklyVisits}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f5ede0" />
-            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="visits" name="访问量" fill="#059669" radius={[6, 6, 0, 0]}>
-              {weeklyVisits.map((_, index) => (
-                <Cell key={index} fill={index === 5 ? "#d97706" : "#059669"} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-        <p className="text-xs mt-2 text-center" style={{ color: "#a8956b" }}>* 橙色柱为周六，为本周访问量最高的一天</p>
+        {errors.weeklyVisits ? (
+          <div className="h-[180px] flex flex-col items-center justify-center text-center gap-3">
+            <p className="text-sm" style={{ color: "#dc2626", fontWeight: 600 }}>{errors.weeklyVisits}</p>
+            <button
+              onClick={fetchData}
+              className="text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: "#dcfce7", color: "#059669", fontWeight: 600 }}
+            >
+              重试
+            </button>
+          </div>
+        ) : weeklyVisits.length === 0 ? (
+          <div className="h-[180px] flex items-center justify-center">
+            <p className="text-sm" style={{ color: "#a8956b" }}>暂无数据</p>
+          </div>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={weeklyVisits}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f5ede0" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#a8956b" }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="visits" name="访问量" fill="#059669" radius={[6, 6, 0, 0]}>
+                  {weeklyVisits.map((item, index) => (
+                    <Cell key={index} fill={item.day === "周六" ? "#d97706" : "#059669"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <p className="text-xs mt-2 text-center" style={{ color: "#a8956b" }}>* 橙色柱为周六，为本周访问量最高的一天</p>
+          </>
+        )}
       </motion.div>
 
       {/* Website Info */}

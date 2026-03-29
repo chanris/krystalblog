@@ -11,7 +11,7 @@ import { articleApi, videoApi, musicApi, statsApi } from "../services/api";
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4, delay, ease: "easeOut" },
+  transition: { duration: 0.4, delay },
 });
 
 function StatCard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
@@ -124,6 +124,22 @@ export default function Home() {
     album: song.albumTitle || song.album || "-",
     durationSec: song.durationSec || song.duration || 0,
   });
+
+  const handleQuickPlay = async (song: any) => {
+    let songData = song;
+    try {
+      const detailRes = await musicApi.detail(song.id);
+      if (detailRes?.data) {
+        songData = detailRes.data;
+        setMusic((prev) => prev.map((s) => (s.id === songData.id ? { ...s, ...songData } : s)));
+      }
+    } catch (error) {
+      console.error("记录播放量失败:", error);
+    }
+
+    const playlist = music.map((s) => normalizeSong(s.id === songData.id ? { ...s, ...songData } : s));
+    setCurrentSong(normalizeSong(songData), playlist);
+  };
 
   const formatDuration = (duration: number | string) => {
     if (typeof duration === "string") return duration;
@@ -284,7 +300,7 @@ export default function Home() {
               {...fadeUp(0.1 + i * 0.04)}
               className="flex items-center gap-4 px-5 py-3.5 cursor-pointer hover:bg-amber-50 transition-colors"
               style={{ borderBottom: i < 3 ? "1px solid #f5ede0" : "none" }}
-              onClick={() => setCurrentSong(normalizeSong(song), music.map(normalizeSong))}
+              onClick={() => handleQuickPlay(song)}
             >
               <span className="text-sm w-5 text-center" style={{ color: "#a8956b" }}>{i + 1}</span>
               {song.cover ? (

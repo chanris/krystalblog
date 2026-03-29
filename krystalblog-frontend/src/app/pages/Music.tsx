@@ -164,34 +164,48 @@ export default function Music() {
     }
   };
 
-  const handlePlay = (song: any) => {
-    // 将后端数据转换为 AppContext 中 Song 类型兼容的格式
-    const songForPlayer = {
-      ...song,
-      artist: song.artistName || "",
-      album: song.albumTitle || "",
-      durationSec: song.duration || 0,
-      plays: song.plays || 0,
-      date: song.createdAt || "",
-      category: song.categoryName || "",
-      tags: song.tags || [],
-    };
-
+  const handlePlay = async (song: any) => {
     if (currentSong?.id === song.id) {
       togglePlay();
-    } else {
-      const playlistForPlayer = songs.map((s) => ({
-        ...s,
-        artist: s.artistName || "",
-        album: s.albumTitle || "",
-        durationSec: s.duration || 0,
-        plays: s.plays || 0,
-        date: s.createdAt || "",
-        category: s.categoryName || "",
-        tags: s.tags || [],
-      }));
-      setCurrentSong(songForPlayer, playlistForPlayer);
+      return;
     }
+
+    let songData = song;
+    try {
+      const detailRes = await musicApi.detail(song.id);
+      if (detailRes?.data) {
+        songData = detailRes.data;
+        setSongs((prev) =>
+          prev.map((s) => (s.id === songData.id ? { ...s, ...songData } : s))
+        );
+      }
+    } catch (error) {
+      console.error("记录播放量失败:", error);
+    }
+
+    const songForPlayer = {
+      ...songData,
+      artist: songData.artistName || "",
+      album: songData.albumTitle || "",
+      durationSec: songData.duration || 0,
+      plays: songData.plays || 0,
+      date: songData.createdAt || "",
+      category: songData.categoryName || "",
+      tags: songData.tags || [],
+    };
+
+    const playlistSource = songs.map((s) => (s.id === songData.id ? { ...s, ...songData } : s));
+    const playlistForPlayer = playlistSource.map((s) => ({
+      ...s,
+      artist: s.artistName || "",
+      album: s.albumTitle || "",
+      durationSec: s.duration || 0,
+      plays: s.plays || 0,
+      date: s.createdAt || "",
+      category: s.categoryName || "",
+      tags: s.tags || [],
+    }));
+    setCurrentSong(songForPlayer, playlistForPlayer);
   };
 
   const isCurrentPlaying = (song: any) =>
